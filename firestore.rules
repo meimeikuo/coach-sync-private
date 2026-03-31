@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email in ["jas60523@gmail.com", "yoshiki840417@gmail.com"]);
+    }
+
+    // ===============================================================
+    // Data Validation
+    // ===============================================================
+    function isValidStudent(data) {
+      return data.keys().hasAll(['name', 'remainingClasses', 'totalClasses', 'joinDate']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.remainingClasses is number &&
+             data.totalClasses is number &&
+             data.joinDate is string;
+    }
+
+    function isValidRecord(data) {
+      return data.keys().hasAll(['studentName', 'date', 'time', 'status', 'createdAt']) &&
+             data.studentName is string && data.studentName.size() > 0 &&
+             data.date is string &&
+             data.time is string &&
+             data.status in ['scheduled', 'completed'] &&
+             data.createdAt is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    match /students/{studentId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /records/{recordId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

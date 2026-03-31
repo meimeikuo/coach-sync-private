@@ -1,0 +1,7 @@
+{
+  "name": "CoachSync 教練課程系統",
+  "description": "專屬教練的學員管理與 AI 自動課程平台",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

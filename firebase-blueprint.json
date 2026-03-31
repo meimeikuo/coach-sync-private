@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "學員資料",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "學員姓名" },
+        "remainingClasses": { "type": "number", "description": "剩餘堂數" },
+        "totalClasses": { "type": "number", "description": "總堂數" },
+        "joinDate": { "type": "string", "description": "加入日期" }
+      },
+      "required": ["name", "remainingClasses", "totalClasses", "joinDate"]
+    },
+    "ClassRecord": {
+      "title": "ClassRecord",
+      "description": "課程紀錄",
+      "type": "object",
+      "properties": {
+        "studentName": { "type": "string", "description": "學員姓名" },
+        "date": { "type": "string", "description": "日期" },
+        "time": { "type": "string", "description": "時間" },
+        "status": { "type": "string", "enum": ["scheduled", "completed"], "description": "狀態" },
+        "createdAt": { "type": "string", "description": "建立時間" },
+        "coachSignature": { "type": "string", "description": "教練簽名 (Base64)" },
+        "studentSignature": { "type": "string", "description": "學員簽名 (Base64)" },
+        "signedAt": { "type": "string", "description": "簽署時間" }
+      },
+      "required": ["studentName", "date", "time", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "學員集合"
+    },
+    "/records/{recordId}": {
+      "schema": "ClassRecord",
+      "description": "課程紀錄集合"
+    }
+  }
+}
