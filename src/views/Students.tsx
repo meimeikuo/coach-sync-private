@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
-import { Student, ClassRecord } from '../types';
+import { Student, ClassRecord, PurchaseRecord } from '../types';
 import ViewRecordModal from '../components/ViewRecordModal';
 import CustomTimePicker from '../components/CustomTimePicker';
 import CustomDatePicker from '../components/CustomDatePicker';
@@ -9,24 +9,46 @@ import CustomDatePicker from '../components/CustomDatePicker';
 interface StudentsProps {
   students: Student[];
   records: ClassRecord[];
+  purchaseRecords?: PurchaseRecord[];
+  isAddingStudent?: boolean;
+  onAddModalClose?: () => void;
   onAddStudent: (student: Omit<Student, 'id' | 'joinDate'>) => void;
   onScheduleClass: (record: Omit<ClassRecord, 'id' | 'createdAt' | 'status'>) => void;
   onRenewClasses: (studentId: string, additionalClasses: number) => void;
   onDeleteStudent: (studentId: string) => void;
   onUpdateRecord: (id: string, date: string, time: string) => void;
+  onUpdateStudentName?: (id: string, newName: string) => void;
 }
 
-export default function Students({ students, records, onAddStudent, onScheduleClass, onRenewClasses, onDeleteStudent, onUpdateRecord }: StudentsProps) {
+export default function Students({ students, records, purchaseRecords = [], isAddingStudent, onAddModalClose, onAddStudent, onScheduleClass, onRenewClasses, onDeleteStudent, onUpdateRecord, onUpdateStudentName }: StudentsProps) {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+
+  useEffect(() => {
+    if (isAddingStudent) {
+      setShowAddModal(true);
+      onAddModalClose?.();
+    }
+  }, [isAddingStudent, onAddModalClose]);
   const [schedulingStudent, setSchedulingStudent] = useState<Student | null>(null);
   const [renewingStudent, setRenewingStudent] = useState<Student | null>(null);
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [viewingRecordId, setViewingRecordId] = useState<string | null>(null);
-  const [recordTab, setRecordTab] = useState<'scheduled' | 'completed'>('scheduled');
+  const [recordTab, setRecordTab] = useState<'scheduled' | 'completed' | 'purchases'>('scheduled');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   
+  const [isEditingStudent, setIsEditingStudent] = useState(false);
+  const [editStudentName, setEditStudentName] = useState('');
+
+  const handleUpdateStudentName = () => {
+    if (viewingStudent && editStudentName.trim() && onUpdateStudentName) {
+      onUpdateStudentName(viewingStudent.id, editStudentName.trim());
+      setViewingStudent({ ...viewingStudent, name: editStudentName.trim() });
+    }
+    setIsEditingStudent(false);
+  };
+
   const [newStudent, setNewStudent] = useState<{
     name: string;
     remainingClasses: number;
@@ -281,11 +303,11 @@ export default function Students({ students, records, onAddStudent, onScheduleCl
 
       {/* Student Detail Modal */}
       {viewingStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 pb-24 sm:p-6 sm:pb-24">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white/95 backdrop-blur-xl w-full max-w-lg rounded-[2.5rem] overflow-hidden flex flex-col max-h-[90vh] relative no-scrollbar shadow-[0_0_60px_rgba(0,0,0,0.2)]"
+            className="bg-white/95 backdrop-blur-xl w-full max-w-lg rounded-[2.5rem] overflow-hidden flex flex-col max-h-[70vh] relative no-scrollbar shadow-[0_0_60px_rgba(0,0,0,0.2)]"
           >
             {/* Ambient Background Glows inside modal */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
@@ -293,57 +315,105 @@ export default function Students({ students, records, onAddStudent, onScheduleCl
               <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[40%] rounded-full bg-blue-400/10 blur-[80px]" />
             </div>
 
-            <div className="p-6 pb-4 border-b border-slate-200/50 flex justify-between items-center bg-white/50 backdrop-blur-md sticky top-0 z-10">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded-full flex items-center justify-center font-bold">
-                  {viewingStudent.name.charAt(0)}
+            <div className="bg-white/50 backdrop-blur-md sticky top-0 z-20 border-b border-slate-200/50">
+              <div className="p-5 sm:p-6 pb-4 flex justify-between items-center">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded-full flex items-center justify-center font-bold">
+                    {viewingStudent.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-900">{viewingStudent.name}</h2>
+                    <p className="text-xs sm:text-sm text-slate-500">剩餘 {viewingStudent.remainingClasses} 堂課</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">{viewingStudent.name}</h2>
-                  <p className="text-sm text-slate-500">剩餘 {viewingStudent.remainingClasses} 堂課</p>
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <button 
+                    onClick={() => {
+                      setEditStudentName(viewingStudent.name);
+                      setIsEditingStudent(true);
+                    }}
+                    className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-cyan-600 transition-colors"
+                  >
+                    ✏️
+                  </button>
+                  <button onClick={() => {
+                    setViewingStudent(null);
+                    setRecordTab('scheduled');
+                  }} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors">
+                    ❌
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={() => {
-                    setEditStudentName(viewingStudent.name);
-                    setIsEditingStudent(true);
-                  }}
-                  className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-cyan-600 transition-colors"
-                >
-                  ✏️
-                </button>
-                <button onClick={() => {
-                  setViewingStudent(null);
-                  setRecordTab('scheduled');
-                }} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors">
-                  ❌
-                </button>
+              <div className="px-5 sm:px-6 pb-4">
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button
+                    onClick={() => setRecordTab('scheduled')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                      recordTab === 'scheduled' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500'
+                    }`}
+                  >
+                    已約課
+                  </button>
+                  <button
+                    onClick={() => setRecordTab('completed')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                      recordTab === 'completed' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'
+                    }`}
+                  >
+                    已完成
+                  </button>
+                  <button
+                    onClick={() => setRecordTab('purchases')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                      recordTab === 'purchases' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'
+                    }`}
+                  >
+                    購課紀錄
+                  </button>
+                </div>
               </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 relative z-10">
-              <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-                <button
-                  onClick={() => setRecordTab('scheduled')}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                    recordTab === 'scheduled' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  已約課
-                </button>
-                <button
-                  onClick={() => setRecordTab('completed')}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                    recordTab === 'completed' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  已完成
-                </button>
-              </div>
-              
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50 relative z-10">
               <div className="space-y-3">
                 {(() => {
+                  if (recordTab === 'purchases') {
+                    const studentPurchases = purchaseRecords.filter(p => p.studentId === viewingStudent.id);
+                    
+                    if (studentPurchases.length === 0) {
+                      return (
+                        <div className="text-center py-8 sm:py-10 text-slate-400">
+                          <div className="text-4xl sm:text-5xl mb-3 opacity-50">💰</div>
+                          <p className="text-sm sm:text-base">尚無購課紀錄</p>
+                        </div>
+                      );
+                    }
+                    
+                    return studentPurchases.map((purchase) => (
+                      <div 
+                        key={purchase.id} 
+                        className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-[0_0_15px_rgba(99,102,241,0.05)] border border-indigo-100/50 relative overflow-hidden"
+                      >
+                        <div className="relative z-10 flex justify-between items-start mb-2">
+                          <div>
+                            <div className="text-sm font-bold text-slate-900">{purchase.type === 'initial' ? '首次購課' : '續課'}</div>
+                            <div className="text-xs text-slate-500">{purchase.purchaseDate}</div>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            <div className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${purchase.type === 'initial' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                              +{purchase.purchasedAmount} 堂
+                            </div>
+                            {purchase.type === 'renewal' && (
+                              <div className="text-[10px] text-slate-400">
+                                續課前總堂數: {purchase.previousTotal}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  }
+
                   const studentRecords = getStudentRecords(viewingStudent.name);
                   const filteredRecords = studentRecords.filter(r => 
                     recordTab === 'completed' ? r.status === 'completed' : r.status !== 'completed'
@@ -351,9 +421,9 @@ export default function Students({ students, records, onAddStudent, onScheduleCl
                   
                   if (filteredRecords.length === 0) {
                     return (
-                      <div className="text-center py-10 text-slate-400">
-                        <div className="text-5xl mb-3 opacity-50">📅</div>
-                        <p>{recordTab === 'completed' ? '尚無已完成課程' : '目前無預約課程'}</p>
+                      <div className="text-center py-8 sm:py-10 text-slate-400">
+                        <div className="text-4xl sm:text-5xl mb-3 opacity-50">📅</div>
+                        <p className="text-sm sm:text-base">{recordTab === 'completed' ? '尚無已完成課程' : '目前無預約課程'}</p>
                       </div>
                     );
                   }
@@ -395,13 +465,58 @@ export default function Students({ students, records, onAddStudent, onScheduleCl
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-6">
+      {/* Edit Student Modal (Includes Delete) */}
+      {isEditingStudent && viewingStudent && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 pb-24 sm:p-6 sm:pb-24">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-[2.5rem] p-8 w-full max-w-[320px] shadow-2xl text-center no-scrollbar"
+            className="bg-white rounded-[2.5rem] p-6 sm:p-8 w-full max-w-[320px] shadow-2xl text-center no-scrollbar"
+          >
+            <h3 className="text-lg font-bold text-slate-900 mb-6">編輯學員</h3>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-700 mb-1 text-left">姓名</label>
+              <input 
+                type="text" 
+                value={editStudentName}
+                onChange={e => setEditStudentName(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:bg-white focus:border-cyan-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-3">
+              <button 
+                onClick={handleUpdateStudentName}
+                className="w-full py-3 bg-cyan-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/30 active:scale-95 transition-all"
+              >
+                儲存變更
+              </button>
+              <button 
+                onClick={() => {
+                  setIsEditingStudent(false);
+                  setShowDeleteConfirm(true);
+                }}
+                className="w-full py-3 bg-red-50 text-red-500 border border-red-100 rounded-xl font-bold active:scale-95 transition-all hover:bg-red-100"
+              >
+                刪除學員
+              </button>
+              <button 
+                onClick={() => setIsEditingStudent(false)}
+                className="w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl active:scale-95 transition-all"
+              >
+                取消
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 pb-24 sm:p-6 sm:pb-24">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-[2.5rem] p-6 sm:p-8 w-full max-w-[320px] shadow-2xl text-center no-scrollbar"
           >
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-2xl mx-auto mb-4 border border-red-100">
               ⚠️
@@ -430,11 +545,11 @@ export default function Students({ students, records, onAddStudent, onScheduleCl
 
       {/* Add Student Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 pb-24 sm:p-6 sm:pb-24">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[2.5rem] p-8 max-h-[90vh] overflow-y-auto no-scrollbar shadow-[0_0_60px_rgba(0,0,0,0.2)]"
+            className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[2.5rem] p-6 sm:p-8 shadow-[0_0_60px_rgba(0,0,0,0.2)]"
           >
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-slate-900">新增學員</h2>
@@ -502,12 +617,21 @@ export default function Students({ students, records, onAddStudent, onScheduleCl
                 </div>
               </div>
               
-              <button 
-                type="submit"
-                className="w-full bg-cyan-500 text-white font-bold rounded-xl py-4 mt-6 active:scale-95 transition-transform shadow-lg shadow-cyan-500/30 hover:bg-cyan-400"
-              >
-                建立學員檔案
-              </button>
+              <div className="flex space-x-3 mt-6">
+                <button 
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 bg-slate-100 text-slate-600 font-bold rounded-xl py-4 active:scale-95 transition-transform hover:bg-slate-200"
+                >
+                  取消
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 bg-cyan-500 text-white font-bold rounded-xl py-4 active:scale-95 transition-transform shadow-lg shadow-cyan-500/30 hover:bg-cyan-400"
+                >
+                  建立學員檔案
+                </button>
+              </div>
             </form>
           </motion.div>
         </div>
@@ -515,246 +639,102 @@ export default function Students({ students, records, onAddStudent, onScheduleCl
 
       {/* Schedule Class Modal */}
       {schedulingStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 pb-24 sm:p-6 sm:pb-24">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[2.5rem] p-8 max-h-[90vh] overflow-y-auto no-scrollbar shadow-[0_0_60px_rgba(0,0,0,0.2)] relative"
+            className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[2.5rem] flex flex-col max-h-[75vh] shadow-[0_0_60px_rgba(0,0,0,0.2)] relative overflow-hidden"
           >
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">預約課程</h2>
-                <p className="text-sm text-slate-500 mt-1">為 <span className="font-bold text-cyan-600">{schedulingStudent.name}</span> 排課</p>
-              </div>
-              <button onClick={() => setSchedulingStudent(null)} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSchedule} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="p-6 sm:p-8 flex flex-col flex-1 overflow-y-auto no-scrollbar">
+              <div className="flex justify-between items-center mb-6 shrink-0">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">日期</label>
-                  <button 
-                    type="button"
-                    onClick={() => setShowInlineDatePicker(true)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
-                  >
-                    <span className="font-medium text-slate-700">{scheduleData.date.replace(/-/g, '/')}</span>
-                    <span className="text-cyan-600">📅</span>
-                  </button>
+                  <h2 className="text-xl font-bold text-slate-900">預約課程</h2>
+                  <p className="text-sm text-slate-500 mt-1">為 <span className="font-bold text-cyan-600">{schedulingStudent.name}</span> 排課</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">時間</label>
-                  <button 
-                    type="button"
-                    onClick={() => setShowInlineTimePicker(true)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
-                  >
-                    <span className="font-medium text-slate-700">{scheduleData.time}</span>
-                    <span className="text-cyan-600">🕒</span>
-                  </button>
-                </div>
+                <button onClick={() => setSchedulingStudent(null)} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors">
+                  <X size={20} />
+                </button>
               </div>
               
-              <button 
-                type="submit"
-                className="w-full bg-cyan-500 text-white font-bold rounded-xl py-4 mt-6 active:scale-95 transition-transform shadow-lg shadow-cyan-500/30 hover:bg-cyan-400"
-              >
-                確認預約
-              </button>
-            </form>
-
-            {/* Inline Date Picker Overlay */}
-            <AnimatePresence>
-              {showInlineDatePicker && (
-                <motion.div 
-                  initial={{ opacity: 0, x: '100%' }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: '100%' }}
-                  className="absolute inset-0 z-20 bg-white p-3 flex flex-col"
-                >
-                  <div className="flex justify-between items-center mb-2 mt-1">
-                    <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400">⬅️</button>
-                    <div className="font-bold text-base text-slate-800">
-                      {viewDate.getFullYear()}年 {monthNames[viewDate.getMonth()]}
-                    </div>
-                    <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400">➡️</button>
-                  </div>
-                  
-                  <div className="grid grid-cols-7 gap-1 mb-0.5">
-                    {weekDays.map(day => (
-                      <div key={day} className="h-6 flex items-center justify-center text-[10px] font-bold text-slate-300 uppercase">
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="grid grid-cols-7 gap-1 flex-1">
-                    {(() => {
-                      const year = viewDate.getFullYear();
-                      const month = viewDate.getMonth();
-                      const days = daysInMonth(year, month);
-                      const firstDay = firstDayOfMonth(year, month);
-                      const calendarDays = [];
-                      
-                      for (let i = 0; i < firstDay; i++) {
-                        calendarDays.push(<div key={`empty-${i}`} className="h-8" />);
-                      }
-                      
-                      for (let d = 1; d <= days; d++) {
-                        const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
-                        const isSelected = scheduleData.date === dateStr;
-                        
-                        const date = new Date(year, month, d);
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const isPast = date < today;
-
-                        calendarDays.push(
-                          <div
-                            key={d}
-                            onClick={() => {
-                              if (isPast) return;
-                              setScheduleData({...scheduleData, date: dateStr});
-                              setShowInlineDatePicker(false);
-                            }}
-                            className={`h-8 flex items-center justify-center rounded-xl text-sm transition-all ${
-                              isPast ? 'text-slate-200 cursor-not-allowed' :
-                              isSelected ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20 font-bold cursor-pointer' : 'hover:bg-slate-50 text-slate-600 cursor-pointer'
-                            }`}
-                          >
-                            {d}
-                          </div>
-                        );
-                      }
-                      return calendarDays;
-                    })()}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Inline Time Picker Overlay */}
-            <AnimatePresence>
-              {showInlineTimePicker && (
-                <motion.div 
-                  initial={{ opacity: 0, x: '100%' }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: '100%' }}
-                  className="absolute inset-0 z-20 bg-white p-8 flex flex-col"
-                >
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-slate-900">選擇時間</h3>
-                    <button onClick={() => setShowInlineTimePicker(false)} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors">
-                      <X size={20} />
+              <form onSubmit={handleSchedule} className="space-y-4 flex-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">日期</label>
+                    <button 
+                      type="button"
+                      onClick={() => setShowInlineDatePicker(true)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
+                    >
+                      <span className="font-medium text-slate-700">{scheduleData.date.replace(/-/g, '/')}</span>
+                      <span className="text-cyan-600">📅</span>
                     </button>
                   </div>
-
-                  <div className="flex-1 flex flex-col min-h-0 py-4">
-                    <div className="flex gap-4 mb-2">
-                      <div className="flex-1 text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">時</div>
-                      <div className="w-2" />
-                      <div className="flex-1 text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">分</div>
-                    </div>
-                    
-                    <div className="flex-1 flex gap-4 min-h-0 relative h-64">
-                      {/* Gradient Masks - reduced opacity to keep text dark and visible */}
-                      <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/80 via-white/30 to-transparent pointer-events-none z-20" />
-                      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white/80 via-white/30 to-transparent pointer-events-none z-20" />
-                      
-                      {/* Hours Column */}
-                      <div 
-                        ref={hourScrollRef}
-                        className="flex-1 overflow-y-auto no-scrollbar rounded-3xl border border-slate-100 bg-slate-50/50 snap-y snap-mandatory relative z-10 scroll-smooth"
-                      >
-                        <div className="h-[108px]" />
-                        {hours.map(hour => {
-                          const isSelected = scheduleData.time.split(':')[0] === hour;
-                          const now = new Date();
-                          const isToday = scheduleData.date === now.toISOString().split('T')[0];
-                          const currentHour = now.getHours();
-                          const isPast = isToday && parseInt(hour) < currentHour;
-
-                          return (
-                            <div
-                              key={hour}
-                              onClick={(e) => {
-                                if (isPast) return;
-                                setScheduleData({...scheduleData, time: `${hour}:${scheduleData.time.split(':')[1]}`});
-                                (e.currentTarget as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              }}
-                              className={`h-12 flex items-center justify-center transition-all text-xl font-bold snap-center mx-2 rounded-xl ${
-                                isPast ? 'text-slate-200 cursor-not-allowed' :
-                                isSelected ? 'bg-blue-600 text-white shadow-md scale-110' : 'text-black hover:text-blue-700 cursor-pointer'
-                              }`}
-                            >
-                              {hour}
-                            </div>
-                          );
-                        })}
-                        <div className="h-[108px]" />
-                      </div>
-
-                      <div className="flex items-center text-black font-bold text-2xl z-10">:</div>
-
-                      {/* Minutes Column */}
-                      <div 
-                        ref={minuteScrollRef}
-                        className="flex-1 overflow-y-auto no-scrollbar rounded-3xl border border-slate-100 bg-slate-50/50 snap-y snap-mandatory relative z-10 scroll-smooth"
-                      >
-                        <div className="h-[108px]" />
-                        {minutes.map(minute => {
-                          const isSelected = scheduleData.time.split(':')[1] === minute;
-                          const now = new Date();
-                          const isToday = scheduleData.date === now.toISOString().split('T')[0];
-                          const currentHour = now.getHours();
-                          const currentMinute = now.getMinutes();
-                          const selectedHour = scheduleData.time.split(':')[0];
-                          const isPast = isToday && parseInt(selectedHour) === currentHour && parseInt(minute) <= currentMinute;
-
-                          return (
-                            <div
-                              key={minute}
-                              onClick={(e) => {
-                                if (isPast) return;
-                                setScheduleData({...scheduleData, time: `${scheduleData.time.split(':')[0]}:${minute}`});
-                                (e.currentTarget as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              }}
-                              className={`h-12 flex items-center justify-center transition-all text-xl font-bold snap-center mx-2 rounded-xl ${
-                                isPast ? 'text-slate-200 cursor-not-allowed' :
-                                isSelected ? 'bg-blue-600 text-white shadow-md scale-110' : 'text-black hover:text-blue-700 cursor-pointer'
-                              }`}
-                            >
-                              {minute}
-                            </div>
-                          );
-                        })}
-                        <div className="h-[108px]" />
-                      </div>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">時間</label>
+                    <button 
+                      type="button"
+                      onClick={() => setShowInlineTimePicker(true)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
+                    >
+                      <span className="font-medium text-slate-700">{scheduleData.time}</span>
+                      <span className="text-cyan-600">🕒</span>
+                    </button>
                   </div>
-                  
-                  <button 
-                    onClick={() => setShowInlineTimePicker(false)}
-                    className="w-full mt-6 py-4 bg-slate-900 text-white font-bold rounded-xl shadow-lg shadow-slate-900/20 active:scale-95 transition-transform"
-                  >
-                    確認時間
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                </div>
+                
+                <button 
+                  type="submit"
+                  className="w-full bg-cyan-500 text-white font-bold rounded-xl py-4 mt-6 active:scale-95 transition-transform shadow-lg shadow-cyan-500/30 hover:bg-cyan-400"
+                >
+                  確認預約
+                </button>
+              </form>
+            </div>
+
           </motion.div>
+
+          {/* Pickers Overlays */}
+          <AnimatePresence>
+            {showInlineDatePicker && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+              >
+                <CustomDatePicker 
+                  value={scheduleData.date} 
+                  onChange={(date) => setScheduleData({...scheduleData, date})} 
+                  onClose={() => setShowInlineDatePicker(false)} 
+                />
+              </motion.div>
+            )}
+            {showInlineTimePicker && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+              >
+                <CustomTimePicker 
+                  value={scheduleData.time} 
+                  date={scheduleData.date}
+                  onChange={(time) => setScheduleData({...scheduleData, time})} 
+                  onClose={() => setShowInlineTimePicker(false)} 
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
       {/* Renew Classes Modal */}
       {renewingStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 pb-24 sm:p-6 sm:pb-24">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[2.5rem] p-8 max-h-[90vh] overflow-y-auto no-scrollbar shadow-[0_0_60px_rgba(0,0,0,0.2)]"
+            className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-[2.5rem] p-6 sm:p-8 max-h-[75vh] overflow-y-auto no-scrollbar shadow-[0_0_60px_rgba(0,0,0,0.2)]"
           >
             <div className="flex justify-between items-center mb-6">
               <div>

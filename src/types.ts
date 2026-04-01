@@ -13,6 +13,17 @@ export interface UserProfile {
   role: 'admin';
 }
 
+export interface PurchaseRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  purchasedAmount: number;
+  purchaseDate: string;
+  previousTotal: number;
+  type: 'initial' | 'renewal';
+  createdAt: number;
+}
+
 export interface ClassRecord {
   id: string;
   studentName: string;

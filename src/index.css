@@ -30,15 +30,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(6, 182, 212, 0.25); /* Cyan-500 with opacity */
+  background: linear-gradient(180deg, rgba(6, 182, 212, 0.15), rgba(6, 182, 212, 0.35), rgba(6, 182, 212, 0.15));
   border-radius: 20px;
   border: 2px solid transparent;
   background-clip: content-box;
-  transition: all 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(6, 182, 212, 0.6); /* Brighter on hover */
+  background: linear-gradient(180deg, rgba(6, 182, 212, 0.4), rgba(6, 182, 212, 0.7), rgba(6, 182, 212, 0.4));
   background-clip: content-box;
 }
 

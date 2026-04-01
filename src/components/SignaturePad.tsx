@@ -150,7 +150,7 @@ export default function SignaturePad({ onSave, onClose, title = "請在下方簽
       <div className="flex-1 p-4 flex flex-col justify-center">
         <div className="bg-white/95 backdrop-blur-xl border border-slate-200/60 rounded-2xl overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.1)] relative">
           <div className="absolute top-4 left-4 right-4 text-center text-slate-400 text-sm font-medium pointer-events-none">
-            請在此區域內簽名
+            {title}
           </div>
           <canvas
             ref={canvasRef}

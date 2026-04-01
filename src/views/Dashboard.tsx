@@ -13,9 +13,10 @@ interface DashboardProps {
   onSignRecord: (id: string, coachSig: string, studentSig: string) => void;
   onUpdateRecord: (id: string, date: string, time: string) => void;
   onScheduleClass: (recordData: Omit<ClassRecord, 'id' | 'createdAt' | 'status'>) => void;
+  onAddStudentClick?: () => void;
 }
 
-export default function Dashboard({ students, records, onNavigate, onSignRecord, onUpdateRecord, onScheduleClass }: DashboardProps) {
+export default function Dashboard({ students, records, onNavigate, onSignRecord, onUpdateRecord, onScheduleClass, onAddStudentClick }: DashboardProps) {
   const [signingRecord, setSigningRecord] = useState<ClassRecord | null>(null);
   const [viewingRecordId, setViewingRecordId] = useState<string | null>(null);
   const [showMonthModal, setShowMonthModal] = useState(false);
@@ -76,7 +77,7 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
         <h2 className="text-lg font-semibold text-slate-900">快速操作</h2>
         <div className="grid grid-cols-2 gap-3">
           <button 
-            onClick={() => onNavigate('students')}
+            onClick={() => onAddStudentClick ? onAddStudentClick() : onNavigate('students')}
             className="flex flex-col items-center justify-center bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] hover:border-cyan-200 group relative overflow-hidden"
           >
             <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-500" />

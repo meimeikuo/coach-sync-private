@@ -44,7 +44,7 @@ export default function CustomTimePicker({ value, date, onChange, onClose }: Cus
       initial={{ opacity: 0, x: '100%' }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: '100%' }}
-      className="absolute inset-0 z-20 bg-white p-6 flex flex-col rounded-[2rem]"
+      className="bg-white p-6 flex flex-col rounded-[2rem] shadow-2xl w-full max-w-[320px]"
     >
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-xl font-bold text-slate-900">選擇時間</h3>

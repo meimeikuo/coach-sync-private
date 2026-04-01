@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, onSnapshot, addDoc, updateDoc, doc, query, orderBy, getDoc, getDocFromServer, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, query, orderBy, getDoc, getDocFromServer, deleteDoc, writeBatch, where, getDocs } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import BottomNav from './components/BottomNav';
 import Dashboard from './views/Dashboard';
 import Students from './views/Students';
 import Records from './views/Records';
 import Login from './views/Login';
-import { Student, ClassRecord, TabType } from './types';
+import { Student, ClassRecord, TabType, PurchaseRecord } from './types';
 
 enum OperationType {
   CREATE = 'create',
@@ -62,8 +62,10 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [records, setRecords] = useState<ClassRecord[]>([]);
+  const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecord[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
@@ -103,9 +105,16 @@ export default function App() {
       setRecords(recordsData);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'records'));
 
+    const purchasesQuery = query(collection(db, 'purchase_records'), orderBy('createdAt', 'desc'));
+    const unsubscribePurchases = onSnapshot(purchasesQuery, (snapshot) => {
+      const purchasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PurchaseRecord));
+      setPurchaseRecords(purchasesData);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'purchase_records'));
+
     return () => {
       unsubscribeStudents();
       unsubscribeRecords();
+      unsubscribePurchases();
     };
   }, [user]);
 
@@ -140,9 +149,20 @@ export default function App() {
   const handleAddStudent = async (studentData: Omit<Student, 'id' | 'joinDate'>) => {
     try {
       const path = 'students';
-      await addDoc(collection(db, path), {
+      const docRef = await addDoc(collection(db, path), {
         ...studentData,
         joinDate: new Date().toISOString().split('T')[0]
+      });
+
+      // Create initial purchase record
+      await addDoc(collection(db, 'purchase_records'), {
+        studentId: docRef.id,
+        studentName: studentData.name,
+        purchasedAmount: studentData.totalClasses,
+        purchaseDate: new Date().toISOString().split('T')[0],
+        previousTotal: 0,
+        type: 'initial',
+        createdAt: Date.now()
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'students');
@@ -186,6 +206,45 @@ export default function App() {
         await updateDoc(studentRef, {
           totalClasses: (studentData.totalClasses || 0) + additionalClasses
         });
+
+        // Create renewal purchase record
+        await addDoc(collection(db, 'purchase_records'), {
+          studentId: studentId,
+          studentName: studentData.name,
+          purchasedAmount: additionalClasses,
+          purchaseDate: new Date().toISOString().split('T')[0],
+          previousTotal: studentData.totalClasses || 0,
+          type: 'renewal',
+          createdAt: Date.now()
+        });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `students/${studentId}`);
+    }
+  };
+
+  const handleUpdateStudentName = async (studentId: string, newName: string) => {
+    try {
+      const studentRef = doc(db, 'students', studentId);
+      const studentSnap = await getDoc(studentRef);
+      
+      if (studentSnap.exists()) {
+        const oldName = studentSnap.data().name;
+        
+        // Update student name
+        await updateDoc(studentRef, {
+          name: newName
+        });
+
+        // Update all records with the old name
+        const recordsQuery = query(collection(db, 'records'), where('studentName', '==', oldName));
+        const recordsSnap = await getDocs(recordsQuery);
+        
+        const batch = writeBatch(db);
+        recordsSnap.forEach(doc => {
+          batch.update(doc.ref, { studentName: newName });
+        });
+        await batch.commit();
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `students/${studentId}`);
@@ -194,7 +253,25 @@ export default function App() {
 
   const handleDeleteStudent = async (studentId: string) => {
     try {
-      await deleteDoc(doc(db, 'students', studentId));
+      const studentRef = doc(db, 'students', studentId);
+      const studentSnap = await getDoc(studentRef);
+      
+      if (studentSnap.exists()) {
+        const studentName = studentSnap.data().name;
+        
+        // Delete student
+        await deleteDoc(studentRef);
+
+        // Delete all records associated with the student
+        const recordsQuery = query(collection(db, 'records'), where('studentName', '==', studentName));
+        const recordsSnap = await getDocs(recordsQuery);
+        
+        const batch = writeBatch(db);
+        recordsSnap.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `students/${studentId}`);
     }
@@ -228,9 +305,9 @@ export default function App() {
       <div className="w-full h-[100dvh] sm:h-[844px] sm:max-w-[390px] bg-white/70 backdrop-blur-3xl sm:rounded-[40px] sm:shadow-[0_0_50px_rgba(0,0,0,0.1)] relative overflow-hidden flex flex-col border-slate-200/50 sm:border-[8px]">
         
         {/* Main Content Area */}
-        <div className="flex-1 overflow-hidden pb-16 z-10">
-          {activeTab === 'dashboard' && <Dashboard students={studentsWithRemaining} records={records} onNavigate={setActiveTab} onSignRecord={handleSignRecord} onUpdateRecord={handleUpdateRecord} onScheduleClass={handleScheduleClass} />}
-          {activeTab === 'students' && <Students students={studentsWithRemaining} records={records} onAddStudent={handleAddStudent} onScheduleClass={handleScheduleClass} onRenewClasses={handleRenewClasses} onDeleteStudent={handleDeleteStudent} onUpdateRecord={handleUpdateRecord} />}
+        <div className="flex-1 overflow-hidden pb-24 sm:pb-16 z-10">
+          {activeTab === 'dashboard' && <Dashboard students={studentsWithRemaining} records={records} onNavigate={setActiveTab} onSignRecord={handleSignRecord} onUpdateRecord={handleUpdateRecord} onScheduleClass={handleScheduleClass} onAddStudentClick={() => { setActiveTab('students'); setIsAddingStudent(true); }} />}
+          {activeTab === 'students' && <Students students={studentsWithRemaining} records={records} purchaseRecords={purchaseRecords} isAddingStudent={isAddingStudent} onAddModalClose={() => setIsAddingStudent(false)} onAddStudent={handleAddStudent} onScheduleClass={handleScheduleClass} onRenewClasses={handleRenewClasses} onDeleteStudent={handleDeleteStudent} onUpdateRecord={handleUpdateRecord} onUpdateStudentName={handleUpdateStudentName} />}
           {activeTab === 'records' && <Records records={records} onSignRecord={handleSignRecord} onUpdateRecord={handleUpdateRecord} />}
         </div>
 

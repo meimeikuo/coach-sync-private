@@ -44,7 +44,7 @@ export default function CustomDatePicker({ value, onChange, onClose }: CustomDat
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="absolute inset-0 z-20 bg-white p-6 flex flex-col rounded-[2rem] shadow-2xl"
+      className="bg-white p-6 flex flex-col rounded-[2rem] shadow-2xl w-full max-w-[320px]"
     >
       <div className="flex justify-between items-center mb-6">
         <button onClick={handlePrevMonth} className="p-2 hover:bg-slate-100 rounded-full text-cyan-600">⬅️</button>
@@ -54,15 +54,15 @@ export default function CustomDatePicker({ value, onChange, onClose }: CustomDat
         <button onClick={handleNextMonth} className="p-2 hover:bg-slate-100 rounded-full text-cyan-600">➡️</button>
       </div>
       
-      <div className="grid grid-cols-7 gap-1 mb-2">
+      <div className="grid grid-cols-7 gap-1 mb-1">
         {weekDays.map(day => (
-          <div key={day} className="h-8 flex items-center justify-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+          <div key={day} className="h-6 flex items-center justify-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
             {day}
           </div>
         ))}
       </div>
       
-      <div className="grid grid-cols-7 gap-1 flex-1 overflow-y-auto no-scrollbar">
+      <div className="grid grid-cols-7 gap-1">
         {(() => {
           const year = viewDate.getFullYear();
           const month = viewDate.getMonth();
@@ -71,7 +71,7 @@ export default function CustomDatePicker({ value, onChange, onClose }: CustomDat
           const calendarDays = [];
           
           for (let i = 0; i < firstDay; i++) {
-            calendarDays.push(<div key={`empty-${i}`} className="h-10" />);
+            calendarDays.push(<div key={`empty-${i}`} className="aspect-square" />);
           }
           
           for (let d = 1; d <= days; d++) {
@@ -87,7 +87,7 @@ export default function CustomDatePicker({ value, onChange, onClose }: CustomDat
               <div
                 key={d}
                 onClick={() => !isPast && handleSelectDate(d)}
-                className={`h-10 flex items-center justify-center rounded-xl text-sm transition-all ${
+                className={`aspect-square flex items-center justify-center rounded-xl text-sm transition-all ${
                   isPast ? 'text-slate-200 cursor-not-allowed' : 
                   isSelected ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20 font-bold cursor-pointer' : 'hover:bg-slate-50 text-slate-600 cursor-pointer'
                 }`}
