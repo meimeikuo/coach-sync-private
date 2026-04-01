@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, onSnapshot, addDoc, updateDoc, doc, query, orderBy, getDoc, getDocFromServer, deleteDoc, writeBatch, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, query, orderBy, getDoc, getDocFromServer, deleteDoc, writeBatch, where, getDocs, increment } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import BottomNav from './components/BottomNav';
 import Dashboard from './views/Dashboard';
@@ -130,16 +130,6 @@ export default function App() {
     }
   };
 
-  const studentsWithRemaining = students.map(student => {
-    const completedCount = records.filter(
-      r => r.studentName === student.name && r.status === 'completed'
-    ).length;
-    return {
-      ...student,
-      remainingClasses: (student.totalClasses || 0) - completedCount
-    };
-  });
-
   if (!isAuthReady) return null;
 
   if (!user) {
@@ -151,6 +141,7 @@ export default function App() {
       const path = 'students';
       const docRef = await addDoc(collection(db, path), {
         ...studentData,
+        remainingClasses: studentData.remainingClasses || studentData.totalClasses || 0,
         joinDate: new Date().toISOString().split('T')[0]
       });
 
@@ -185,12 +176,29 @@ export default function App() {
   const handleSignRecord = async (id: string, coachSig: string, studentSig: string) => {
     try {
       const recordRef = doc(db, 'records', id);
-      await updateDoc(recordRef, {
-        status: 'completed',
-        coachSignature: coachSig,
-        studentSignature: studentSig,
-        signedAt: new Date().toISOString()
-      });
+      const recordSnap = await getDoc(recordRef);
+      
+      if (recordSnap.exists()) {
+        const studentName = recordSnap.data().studentName;
+        
+        // Update record status
+        await updateDoc(recordRef, {
+          status: 'completed',
+          coachSignature: coachSig,
+          studentSignature: studentSig,
+          signedAt: new Date().toISOString()
+        });
+
+        // Deduct remaining classes
+        const studentsQuery = query(collection(db, 'students'), where('name', '==', studentName));
+        const studentsSnap = await getDocs(studentsQuery);
+        if (!studentsSnap.empty) {
+          const studentDoc = studentsSnap.docs[0];
+          await updateDoc(studentDoc.ref, {
+            remainingClasses: increment(-1)
+          });
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `records/${id}`);
     }
@@ -204,7 +212,8 @@ export default function App() {
       if (studentSnap.exists()) {
         const studentData = studentSnap.data() as Student;
         await updateDoc(studentRef, {
-          totalClasses: (studentData.totalClasses || 0) + additionalClasses
+          totalClasses: increment(additionalClasses),
+          remainingClasses: increment(additionalClasses)
         });
 
         // Create renewal purchase record
@@ -262,14 +271,29 @@ export default function App() {
         // Delete student
         await deleteDoc(studentRef);
 
+        const batch = writeBatch(db);
+
         // Delete all records associated with the student
         const recordsQuery = query(collection(db, 'records'), where('studentName', '==', studentName));
         const recordsSnap = await getDocs(recordsQuery);
-        
-        const batch = writeBatch(db);
         recordsSnap.forEach(doc => {
           batch.delete(doc.ref);
         });
+
+        // Delete purchase records
+        const purchaseRecordsQuery = query(collection(db, 'purchase_records'), where('studentId', '==', studentId));
+        const purchaseRecordsSnap = await getDocs(purchaseRecordsQuery);
+        purchaseRecordsSnap.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+
+        // Delete old purchases
+        const oldPurchasesQuery = query(collection(db, 'purchases'), where('studentId', '==', studentId));
+        const oldPurchasesSnap = await getDocs(oldPurchasesQuery);
+        oldPurchasesSnap.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+
         await batch.commit();
       }
     } catch (error) {
@@ -306,8 +330,8 @@ export default function App() {
         
         {/* Main Content Area */}
         <div className="flex-1 overflow-hidden pb-24 sm:pb-16 z-10">
-          {activeTab === 'dashboard' && <Dashboard students={studentsWithRemaining} records={records} onNavigate={setActiveTab} onSignRecord={handleSignRecord} onUpdateRecord={handleUpdateRecord} onScheduleClass={handleScheduleClass} onAddStudentClick={() => { setActiveTab('students'); setIsAddingStudent(true); }} />}
-          {activeTab === 'students' && <Students students={studentsWithRemaining} records={records} purchaseRecords={purchaseRecords} isAddingStudent={isAddingStudent} onAddModalClose={() => setIsAddingStudent(false)} onAddStudent={handleAddStudent} onScheduleClass={handleScheduleClass} onRenewClasses={handleRenewClasses} onDeleteStudent={handleDeleteStudent} onUpdateRecord={handleUpdateRecord} onUpdateStudentName={handleUpdateStudentName} />}
+          {activeTab === 'dashboard' && <Dashboard students={students} records={records} onNavigate={setActiveTab} onSignRecord={handleSignRecord} onUpdateRecord={handleUpdateRecord} onScheduleClass={handleScheduleClass} onAddStudentClick={() => { setActiveTab('students'); setIsAddingStudent(true); }} />}
+          {activeTab === 'students' && <Students students={students} records={records} purchaseRecords={purchaseRecords} isAddingStudent={isAddingStudent} onAddModalClose={() => setIsAddingStudent(false)} onAddStudent={handleAddStudent} onScheduleClass={handleScheduleClass} onRenewClasses={handleRenewClasses} onDeleteStudent={handleDeleteStudent} onUpdateRecord={handleUpdateRecord} onUpdateStudentName={handleUpdateStudentName} />}
           {activeTab === 'records' && <Records records={records} onSignRecord={handleSignRecord} onUpdateRecord={handleUpdateRecord} />}
         </div>
 

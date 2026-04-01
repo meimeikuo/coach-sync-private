@@ -60,6 +60,16 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
   }, [editDate]);
 
   const handleSave = () => {
+    // Final check: selected time must be in the future
+    const [year, month, day] = editDate.split('-').map(Number);
+    const [hour, minute] = editTime.split(':').map(Number);
+    const selectedDateTime = new Date(year, month - 1, day, hour, minute);
+    
+    if (selectedDateTime < new Date()) {
+      alert('無法預約過去的時間，請重新選擇。');
+      return;
+    }
+
     if (onUpdate) {
       onUpdate(record.id, editDate, editTime);
       onClose(); // Close the modal to return to the list

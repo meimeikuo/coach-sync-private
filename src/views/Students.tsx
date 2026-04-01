@@ -59,14 +59,29 @@ export default function Students({ students, records, purchaseRecords = [], isAd
     totalClasses: 10
   });
 
-  const [scheduleData, setScheduleData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    time: '10:00'
+  const [scheduleData, setScheduleData] = useState(() => {
+    const now = new Date();
+    const defaultDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+    const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
+    const minutes = defaultTimeDate.getMinutes();
+    const roundedMinutes = Math.ceil(minutes / 5) * 5;
+    if (roundedMinutes >= 60) {
+      defaultTimeDate.setHours(defaultTimeDate.getHours() + 1);
+      defaultTimeDate.setMinutes(0);
+    } else {
+      defaultTimeDate.setMinutes(roundedMinutes);
+    }
+    const defaultTime = `${defaultTimeDate.getHours().toString().padStart(2, '0')}:${defaultTimeDate.getMinutes().toString().padStart(2, '0')}`;
+    return {
+      date: defaultDate,
+      time: defaultTime
+    };
   });
 
   const getValidFutureTime = (dateStr: string, currentTime: string) => {
     const now = new Date();
-    const isToday = dateStr === now.toISOString().split('T')[0];
+    const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+    const isToday = dateStr === todayStr;
     if (!isToday) return currentTime;
     
     const currentHour = now.getHours();
@@ -92,11 +107,22 @@ export default function Students({ students, records, purchaseRecords = [], isAd
 
   useEffect(() => {
     if (schedulingStudent) {
-      const today = new Date().toISOString().split('T')[0];
-      const validTime = getValidFutureTime(today, '10:00');
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+      const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
+      const minutes = defaultTimeDate.getMinutes();
+      const roundedMinutes = Math.ceil(minutes / 5) * 5;
+      if (roundedMinutes >= 60) {
+        defaultTimeDate.setHours(defaultTimeDate.getHours() + 1);
+        defaultTimeDate.setMinutes(0);
+      } else {
+        defaultTimeDate.setMinutes(roundedMinutes);
+      }
+      const defaultTime = `${defaultTimeDate.getHours().toString().padStart(2, '0')}:${defaultTimeDate.getMinutes().toString().padStart(2, '0')}`;
+      
       setScheduleData({
-        date: today,
-        time: validTime
+        date: dateStr,
+        time: defaultTime
       });
     }
   }, [schedulingStudent]);
@@ -176,6 +202,16 @@ export default function Students({ students, records, purchaseRecords = [], isAd
   const handleSchedule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!schedulingStudent) return;
+
+    // Final check: selected time must be in the future
+    const [year, month, day] = scheduleData.date.split('-').map(Number);
+    const [hour, minute] = scheduleData.time.split(':').map(Number);
+    const selectedDateTime = new Date(year, month - 1, day, hour, minute);
+    
+    if (selectedDateTime < new Date()) {
+      alert('無法預約過去的時間，請重新選擇。');
+      return;
+    }
 
     onScheduleClass({
       studentName: schedulingStudent.name,
@@ -266,7 +302,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
             </div>
             <div className="relative z-10 flex flex-col items-end space-y-2">
               <div className="text-right">
-                <div className="text-xl font-bold text-cyan-600">{student.remainingClasses}</div>
+                <div className="text-xl font-bold text-cyan-600">{student.remainingClasses || 0}</div>
                 <div className="text-[10px] text-slate-400">剩餘堂數</div>
               </div>
               <div className="flex space-x-2">
@@ -323,7 +359,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                   </div>
                   <div>
                     <h2 className="text-lg sm:text-xl font-bold text-slate-900">{viewingStudent.name}</h2>
-                    <p className="text-xs sm:text-sm text-slate-500">剩餘 {viewingStudent.remainingClasses} 堂課</p>
+                    <p className="text-xs sm:text-sm text-slate-500">剩餘 {viewingStudent.remainingClasses || 0} 堂課</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-1 sm:space-x-2">
@@ -783,7 +819,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4">
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-slate-500">目前剩餘堂數</span>
-                  <span className="font-medium text-slate-900">{renewingStudent.remainingClasses} 堂</span>
+                  <span className="font-medium text-slate-900">{renewingStudent.remainingClasses || 0} 堂</span>
                 </div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-slate-500">新增堂數</span>
@@ -791,7 +827,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                 </div>
                 <div className="flex justify-between text-sm font-bold pt-2 border-t border-slate-200">
                   <span className="text-slate-700">續課後總剩餘</span>
-                  <span className="text-emerald-600">{renewingStudent.remainingClasses + renewAmount} 堂</span>
+                  <span className="text-emerald-600">{(renewingStudent.remainingClasses || 0) + renewAmount} 堂</span>
                 </div>
               </div>
               

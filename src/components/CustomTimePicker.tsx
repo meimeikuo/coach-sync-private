@@ -16,7 +16,8 @@ export default function CustomTimePicker({ value, date, onChange, onClose }: Cus
   const [selectedMinute, setSelectedMinute] = useState((value || '10:00').split(':')[1]);
   
   const now = new Date();
-  const isToday = date === now.toISOString().split('T')[0];
+  const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+  const isToday = date === todayStr;
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
   

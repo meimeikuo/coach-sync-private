@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Student } from '../types';
 import CustomDatePicker from './CustomDatePicker';
@@ -11,18 +11,72 @@ interface QuickBookingModalProps {
 }
 
 export default function QuickBookingModal({ students, onClose, onBook }: QuickBookingModalProps) {
-  const eligibleStudents = students.filter(s => s.remainingClasses > 0);
+  const eligibleStudents = students.filter(s => (s.remainingClasses || 0) > 0);
   const [selectedStudentId, setSelectedStudentId] = useState(eligibleStudents.length > 0 ? eligibleStudents[0].id : '');
   const [showStudentPicker, setShowStudentPicker] = useState(false);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState('10:00');
+  
+  // Default date: today (local)
+  const now = new Date();
+  const defaultDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+  
+  // Default time: now + 1 hour (local)
+  const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
+  // Round up to nearest 5 minutes
+  const minutes = defaultTimeDate.getMinutes();
+  const roundedMinutes = Math.ceil(minutes / 5) * 5;
+  if (roundedMinutes >= 60) {
+    defaultTimeDate.setHours(defaultTimeDate.getHours() + 1);
+    defaultTimeDate.setMinutes(0);
+  } else {
+    defaultTimeDate.setMinutes(roundedMinutes);
+  }
+  const defaultTime = `${defaultTimeDate.getHours().toString().padStart(2, '0')}:${defaultTimeDate.getMinutes().toString().padStart(2, '0')}`;
+
+  const [date, setDate] = useState(defaultDate);
+  const [time, setTime] = useState(defaultTime);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  useEffect(() => {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+    const isToday = date === todayStr;
+    if (isToday) {
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const [h, m] = time.split(':').map(Number);
+      
+      if (h < currentHour || (h === currentHour && m <= currentMinute)) {
+        const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
+        const minutes = defaultTimeDate.getMinutes();
+        const roundedMinutes = Math.ceil(minutes / 5) * 5;
+        if (roundedMinutes >= 60) {
+          defaultTimeDate.setHours(defaultTimeDate.getHours() + 1);
+          defaultTimeDate.setMinutes(0);
+        } else {
+          defaultTimeDate.setMinutes(roundedMinutes);
+        }
+        const newTime = `${defaultTimeDate.getHours().toString().padStart(2, '0')}:${defaultTimeDate.getMinutes().toString().padStart(2, '0')}`;
+        setTime(newTime);
+      }
+    }
+  }, [date]);
 
   const selectedStudent = eligibleStudents.find(s => s.id === selectedStudentId);
 
   const handleBook = () => {
     if (!selectedStudentId) return;
+
+    // Final check: selected time must be in the future
+    const [year, month, day] = date.split('-').map(Number);
+    const [hour, minute] = time.split(':').map(Number);
+    const selectedDateTime = new Date(year, month - 1, day, hour, minute);
+    
+    if (selectedDateTime < new Date()) {
+      alert('無法預約過去的時間，請重新選擇。');
+      return;
+    }
+
     onBook(selectedStudentId, date, time);
     onClose();
   };
@@ -44,7 +98,7 @@ export default function QuickBookingModal({ students, onClose, onBook }: QuickBo
                 onClick={() => setShowStudentPicker(!showStudentPicker)}
                 className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-4 text-slate-900 text-left shadow-sm hover:border-cyan-500 transition-all flex items-center justify-between"
               >
-                <span>{selectedStudent ? `${selectedStudent.name} (剩餘 ${selectedStudent.remainingClasses} 堂)` : '無可預約學員'}</span>
+                <span>{selectedStudent ? `${selectedStudent.name} (剩餘 ${selectedStudent.remainingClasses || 0} 堂)` : '無可預約學員'}</span>
                 <span className="text-slate-400">▼</span>
               </button>
               
@@ -62,7 +116,7 @@ export default function QuickBookingModal({ students, onClose, onBook }: QuickBo
                         onClick={() => { setSelectedStudentId(s.id); setShowStudentPicker(false); }}
                         className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-t border-slate-50 first:border-t-0"
                       >
-                        {s.name} (剩餘 {s.remainingClasses} 堂)
+                        {s.name} (剩餘 {s.remainingClasses || 0} 堂)
                       </button>
                     ))}
                   </motion.div>
