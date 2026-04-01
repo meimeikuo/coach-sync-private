@@ -139,10 +139,13 @@ export default function App() {
   const handleAddStudent = async (studentData: Omit<Student, 'id' | 'joinDate'>) => {
     try {
       const path = 'students';
+      const now = new Date();
+      const localDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+      
       const docRef = await addDoc(collection(db, path), {
         ...studentData,
         remainingClasses: studentData.remainingClasses || studentData.totalClasses || 0,
-        joinDate: new Date().toISOString().split('T')[0]
+        joinDate: localDate
       });
 
       // Create initial purchase record
@@ -150,7 +153,7 @@ export default function App() {
         studentId: docRef.id,
         studentName: studentData.name,
         purchasedAmount: studentData.totalClasses,
-        purchaseDate: new Date().toISOString().split('T')[0],
+        purchaseDate: localDate,
         previousTotal: 0,
         type: 'initial',
         createdAt: Date.now()
@@ -211,6 +214,9 @@ export default function App() {
       
       if (studentSnap.exists()) {
         const studentData = studentSnap.data() as Student;
+        const now = new Date();
+        const localDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+
         await updateDoc(studentRef, {
           totalClasses: increment(additionalClasses),
           remainingClasses: increment(additionalClasses)
@@ -221,7 +227,7 @@ export default function App() {
           studentId: studentId,
           studentName: studentData.name,
           purchasedAmount: additionalClasses,
-          purchaseDate: new Date().toISOString().split('T')[0],
+          purchaseDate: localDate,
           previousTotal: studentData.totalClasses || 0,
           type: 'renewal',
           createdAt: Date.now()

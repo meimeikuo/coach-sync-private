@@ -29,7 +29,8 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
 
   const getValidFutureTime = (dateStr: string, currentTime: string) => {
     const now = new Date();
-    const isToday = dateStr === now.toISOString().split('T')[0];
+    const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+    const isToday = dateStr === todayStr;
     if (!isToday) return currentTime;
     
     const currentHour = now.getHours();

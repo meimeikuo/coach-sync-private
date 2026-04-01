@@ -24,10 +24,11 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
   const [showEditLessonModal, setShowEditLessonModal] = useState(false);
 
   const viewingRecord = records.find(r => r.id === viewingRecordId);
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
   const todayRecords = records.filter(r => r.date === today);
 
-  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`; // YYYY-MM
   const monthRecords = records.filter(r => r.date.startsWith(currentMonth));
 
   const handleSign = (id: string, coachSig: string, studentSig: string) => {
