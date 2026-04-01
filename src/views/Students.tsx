@@ -700,13 +700,16 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+                className="fixed inset-0 z-[999] flex items-center justify-center bg-transparent backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+                onClick={() => setShowInlineDatePicker(false)}
               >
-                <CustomDatePicker 
-                  value={scheduleData.date} 
-                  onChange={(date) => setScheduleData({...scheduleData, date})} 
-                  onClose={() => setShowInlineDatePicker(false)} 
-                />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <CustomDatePicker 
+                    value={scheduleData.date} 
+                    onChange={(date) => setScheduleData({...scheduleData, date})} 
+                    onClose={() => setShowInlineDatePicker(false)} 
+                  />
+                </div>
               </motion.div>
             )}
             {showInlineTimePicker && (
@@ -714,14 +717,17 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+                className="fixed inset-0 z-[999] flex items-center justify-center bg-transparent backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+                onClick={() => setShowInlineTimePicker(false)}
               >
-                <CustomTimePicker 
-                  value={scheduleData.time} 
-                  date={scheduleData.date}
-                  onChange={(time) => setScheduleData({...scheduleData, time})} 
-                  onClose={() => setShowInlineTimePicker(false)} 
-                />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <CustomTimePicker 
+                    value={scheduleData.time} 
+                    date={scheduleData.date}
+                    onChange={(time) => setScheduleData({...scheduleData, time})} 
+                    onClose={() => setShowInlineTimePicker(false)} 
+                  />
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

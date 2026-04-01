@@ -112,14 +112,14 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
                     </div>
                     <div className="flex-1">
                       <h3 className="text-base font-bold text-slate-900">{record?.studentName}</h3>
-                      <div className="flex flex-col text-[11px] text-slate-500 space-y-1 mt-2">
+                      <div className="flex flex-col text-sm text-slate-600 space-y-2 mt-3">
                         <span className="flex items-center">
-                          <span className="mr-1.5 opacity-70">📅</span> 
-                          <span className="font-medium text-slate-700">{record?.date}</span>
+                          <span className="mr-2 opacity-70 text-lg">📅</span> 
+                          <span className="font-bold text-slate-800 text-lg">{record?.date}</span>
                         </span>
                         <span className="flex items-center">
-                          <span className="mr-1.5 opacity-70">🕒</span> 
-                          <span className="font-medium text-slate-700">{record?.time}</span>
+                          <span className="mr-2 opacity-70 text-lg">🕒</span> 
+                          <span className="font-bold text-slate-800 text-lg">{record?.time}</span>
                         </span>
                       </div>
                     </div>
@@ -260,13 +260,16 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-transparent backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+            onClick={() => setShowDatePicker(false)}
           >
-            <CustomDatePicker 
-              value={editDate} 
-              onChange={setEditDate} 
-              onClose={() => setShowDatePicker(false)} 
-            />
+            <div onClick={(e) => e.stopPropagation()}>
+              <CustomDatePicker 
+                value={editDate} 
+                onChange={setEditDate} 
+                onClose={() => setShowDatePicker(false)} 
+              />
+            </div>
           </motion.div>
         )}
         {showTimePicker && (
@@ -274,14 +277,17 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-transparent backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+            onClick={() => setShowTimePicker(false)}
           >
-            <CustomTimePicker 
-              value={editTime} 
-              date={editDate}
-              onChange={setEditTime} 
-              onClose={() => setShowTimePicker(false)} 
-            />
+            <div onClick={(e) => e.stopPropagation()}>
+              <CustomTimePicker 
+                value={editTime} 
+                date={editDate}
+                onChange={setEditTime} 
+                onClose={() => setShowTimePicker(false)} 
+              />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

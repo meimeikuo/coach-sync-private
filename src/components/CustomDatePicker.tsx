@@ -71,7 +71,7 @@ export default function CustomDatePicker({ value, onChange, onClose }: CustomDat
           const calendarDays = [];
           
           for (let i = 0; i < firstDay; i++) {
-            calendarDays.push(<div key={`empty-${i}`} className="aspect-square" />);
+            calendarDays.push(<div key={`empty-${i}`} className="h-8 sm:h-10" />);
           }
           
           for (let d = 1; d <= days; d++) {
@@ -87,7 +87,7 @@ export default function CustomDatePicker({ value, onChange, onClose }: CustomDat
               <div
                 key={d}
                 onClick={() => !isPast && handleSelectDate(d)}
-                className={`aspect-square flex items-center justify-center rounded-xl text-sm transition-all ${
+                className={`h-8 sm:h-10 flex items-center justify-center rounded-xl text-sm transition-all ${
                   isPast ? 'text-slate-200 cursor-not-allowed' : 
                   isSelected ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20 font-bold cursor-pointer' : 'hover:bg-slate-50 text-slate-600 cursor-pointer'
                 }`}

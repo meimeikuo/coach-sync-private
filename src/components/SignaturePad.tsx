@@ -140,13 +140,6 @@ export default function SignaturePad({ onSave, onClose, title = "請在下方簽
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-slate-900/40 backdrop-blur-sm">
-      <div className="flex justify-between items-center p-4 text-white pt-safe">
-        <h3 className="text-lg font-bold drop-shadow-md">{title}</h3>
-        <button onClick={onClose} className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors backdrop-blur-md">
-          ❌
-        </button>
-      </div>
-      
       <div className="flex-1 p-4 flex flex-col justify-center">
         <div className="bg-white/95 backdrop-blur-xl border border-slate-200/60 rounded-2xl overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.1)] relative">
           <div className="absolute top-4 left-4 right-4 text-center text-slate-400 text-sm font-medium pointer-events-none">
@@ -163,11 +156,14 @@ export default function SignaturePad({ onSave, onClose, title = "請在下方簽
             onTouchEnd={stopDrawing}
             className="w-full h-72 touch-none cursor-crosshair bg-slate-50/50"
           />
-          <div className="absolute bottom-4 left-4 right-4 flex justify-between">
-            <button onClick={clear} className="px-4 py-2 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium flex items-center space-x-2 shadow-sm active:scale-95 transition-transform hover:bg-slate-50">
-              <span>清除</span>
+          <div className="absolute bottom-4 left-4 right-4 flex space-x-3">
+            <button onClick={onClose} className="px-4 py-2 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium flex items-center justify-center shadow-sm active:scale-95 transition-transform hover:bg-slate-50">
+              取消
             </button>
-            <button onClick={save} className="px-6 py-2 bg-cyan-600 text-white rounded-xl font-bold shadow-[0_0_20px_rgba(8,145,178,0.2)] active:scale-95 transition-transform hover:bg-cyan-700">
+            <button onClick={clear} className="px-4 py-2 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium flex items-center justify-center shadow-sm active:scale-95 transition-transform hover:bg-slate-50">
+              清除
+            </button>
+            <button onClick={save} className="flex-1 py-2 bg-cyan-600 text-white rounded-xl font-bold shadow-[0_0_20px_rgba(8,145,178,0.2)] active:scale-95 transition-transform hover:bg-cyan-700">
               確認簽名
             </button>
           </div>

@@ -98,12 +98,34 @@ export default function QuickBookingModal({ students, onClose, onBook }: QuickBo
           <button onClick={handleBook} className="flex-1 py-3 bg-cyan-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20">預約</button>
         </div>
 
-        {showDatePicker && (
-          <CustomDatePicker value={date} onChange={setDate} onClose={() => setShowDatePicker(false)} />
-        )}
-        {showTimePicker && (
-          <CustomTimePicker value={time} date={date} onChange={setTime} onClose={() => setShowTimePicker(false)} />
-        )}
+        <AnimatePresence>
+          {showDatePicker && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[999] flex items-center justify-center bg-transparent backdrop-blur-sm p-4"
+              onClick={() => setShowDatePicker(false)}
+            >
+              <div onClick={(e) => e.stopPropagation()}>
+                <CustomDatePicker value={date} onChange={setDate} onClose={() => setShowDatePicker(false)} />
+              </div>
+            </motion.div>
+          )}
+          {showTimePicker && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[999] flex items-center justify-center bg-transparent backdrop-blur-sm p-4"
+              onClick={() => setShowTimePicker(false)}
+            >
+              <div onClick={(e) => e.stopPropagation()}>
+                <CustomTimePicker value={time} date={date} onChange={setTime} onClose={() => setShowTimePicker(false)} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
