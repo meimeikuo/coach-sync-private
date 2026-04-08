@@ -10,10 +10,12 @@ export default function SignaturePad({ onSave, onClose, title = "請在下方簽
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isRotated, setIsRotated] = useState(false);
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   useEffect(() => {
     const checkOrientation = () => {
       setIsRotated(window.innerHeight > window.innerWidth);
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
     };
     checkOrientation();
     window.addEventListener('resize', checkOrientation);
@@ -204,27 +206,32 @@ export default function SignaturePad({ onSave, onClose, title = "請在下方簽
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md overflow-hidden">
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md overflow-hidden select-none"
+      style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+    >
       <div 
-        className="relative bg-white/95 backdrop-blur-xl flex flex-col rounded-[2.5rem] shadow-[0_0_60px_rgba(0,0,0,0.2)] overflow-hidden" 
+        className="relative bg-white/95 backdrop-blur-xl flex flex-col rounded-3xl sm:rounded-[2.5rem] shadow-[0_0_60px_rgba(0,0,0,0.2)] overflow-hidden select-none" 
         style={isRotated ? {
-          width: 'calc(100vh - 32px)',
-          maxWidth: '800px',
-          height: 'calc(100vw - 32px)',
-          maxHeight: '448px', // max-w-md
-          transform: 'rotate(-90deg)'
+          width: `${windowSize.height - 16}px`,
+          maxWidth: '1000px',
+          height: `${windowSize.width - 16}px`,
+          maxHeight: '600px',
+          transform: 'rotate(-90deg)',
+          WebkitTouchCallout: 'none'
         } : {
-          width: 'calc(100vw - 32px)',
-          maxWidth: '448px', // max-w-md
-          height: 'calc(100vh - 32px)',
-          maxHeight: '800px'
+          width: `${windowSize.width - 16}px`,
+          maxWidth: '600px',
+          height: `${windowSize.height - 16}px`,
+          maxHeight: '1000px',
+          WebkitTouchCallout: 'none'
         }}
       >
-        <div className="px-8 pt-8 pb-4 text-center text-slate-800 text-xl font-bold z-10 shrink-0">
+        <div className="px-4 pt-4 pb-2 sm:px-8 sm:pt-8 sm:pb-4 text-center text-slate-800 text-lg sm:text-xl font-bold z-10 shrink-0 select-none pointer-events-none">
           {title}
         </div>
         
-        <div className="flex-1 relative mx-8 mb-4 rounded-2xl overflow-hidden border border-slate-200/60 bg-white shadow-inner">
+        <div className="flex-1 relative mx-4 mb-3 sm:mx-8 sm:mb-4 rounded-2xl overflow-hidden border border-slate-200/60 bg-white shadow-inner">
           <canvas
             ref={canvasRef}
             onMouseDown={startDrawing}
@@ -234,18 +241,18 @@ export default function SignaturePad({ onSave, onClose, title = "請在下方簽
             onTouchStart={startDrawing}
             onTouchMove={draw}
             onTouchEnd={stopDrawing}
-            className="absolute inset-0 w-full h-full touch-none cursor-crosshair"
+            className="absolute inset-0 w-full h-full touch-none cursor-crosshair select-none"
           />
         </div>
         
-        <div className="p-8 pt-2 bg-transparent flex space-x-4 z-10 shrink-0">
-          <button onClick={onClose} className="flex-1 py-4 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium shadow-sm active:scale-95 transition-transform hover:bg-slate-50">
+        <div className="p-4 pt-2 sm:p-8 sm:pt-2 bg-transparent flex space-x-3 sm:space-x-4 z-10 shrink-0 select-none">
+          <button onClick={onClose} className="flex-1 py-3 sm:py-4 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium shadow-sm active:scale-95 transition-transform hover:bg-slate-50 select-none">
             取消
           </button>
-          <button onClick={clear} className="flex-1 py-4 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium shadow-sm active:scale-95 transition-transform hover:bg-slate-50">
+          <button onClick={clear} className="flex-1 py-3 sm:py-4 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium shadow-sm active:scale-95 transition-transform hover:bg-slate-50 select-none">
             清除
           </button>
-          <button onClick={save} className="flex-[2] py-4 bg-cyan-600 text-white rounded-xl font-bold shadow-[0_0_20px_rgba(8,145,178,0.2)] active:scale-95 transition-transform hover:bg-cyan-700">
+          <button onClick={save} className="flex-[2] py-3 sm:py-4 bg-cyan-600 text-white rounded-xl font-bold shadow-[0_0_20px_rgba(8,145,178,0.2)] active:scale-95 transition-transform hover:bg-cyan-700 select-none">
             確認簽名
           </button>
         </div>
