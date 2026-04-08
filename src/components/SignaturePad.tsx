@@ -9,6 +9,16 @@ interface SignaturePadProps {
 export default function SignaturePad({ onSave, onClose, title = "請在下方簽名" }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isRotated, setIsRotated] = useState(false);
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsRotated(window.innerHeight > window.innerWidth);
+    };
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    return () => window.removeEventListener('resize', checkOrientation);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -16,20 +26,87 @@ export default function SignaturePad({ onSave, onClose, title = "請在下方簽
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Set actual size in memory (scaled to account for extra pixel density)
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * 2;
-    canvas.height = rect.height * 2;
-    ctx.scale(2, 2);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#0f1115'; // Dark ink for light theme
+    // Use ResizeObserver to ensure canvas memory size perfectly matches its CSS size
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width === 0 || height === 0) continue;
+        
+        // Only resize if dimensions changed to avoid clearing canvas unnecessarily
+        if (canvas.width !== width * 2 || canvas.height !== height * 2) {
+          // Save current drawing if any
+          let tempCanvas: HTMLCanvasElement | null = null;
+          if (canvas.width > 0 && canvas.height > 0) {
+            tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            if (tempCtx) tempCtx.drawImage(canvas, 0, 0);
+          }
+
+          canvas.width = width * 2;
+          canvas.height = height * 2;
+          ctx.scale(2, 2);
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = '#0f1115'; // Dark ink for light theme
+          
+          // Restore drawing
+          if (tempCanvas) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform to draw image correctly
+            ctx.drawImage(tempCanvas, 0, 0);
+            ctx.restore();
+          }
+        }
+      }
+    });
+
+    resizeObserver.observe(canvas);
+
+    return () => resizeObserver.disconnect();
   }, []);
+
+  const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
+    let clientX, clientY;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: clientX, y: clientY };
+    
+    const rect = canvas.getBoundingClientRect();
+
+    if (isRotated) {
+      return {
+        x: rect.height - (clientY - rect.top),
+        y: clientX - rect.left
+      };
+    } else {
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+  };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     setIsDrawing(true);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const { x, y } = getCoordinates(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
     draw(e);
   };
 
@@ -50,19 +127,7 @@ export default function SignaturePad({ onSave, onClose, title = "請在下方簽
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const rect = canvas.getBoundingClientRect();
-    let clientX, clientY;
-
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = (e as React.MouseEvent).clientX;
-      clientY = (e as React.MouseEvent).clientY;
-    }
-
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+    const { x, y } = getCoordinates(e);
 
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -139,12 +204,27 @@ export default function SignaturePad({ onSave, onClose, title = "請在下方簽
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-slate-900/40 backdrop-blur-sm">
-      <div className="flex-1 p-4 flex flex-col justify-center">
-        <div className="bg-white/95 backdrop-blur-xl border border-slate-200/60 rounded-2xl overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.1)] relative">
-          <div className="absolute top-4 left-4 right-4 text-center text-slate-400 text-sm font-medium pointer-events-none">
-            {title}
-          </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md overflow-hidden">
+      <div 
+        className="relative bg-white/95 backdrop-blur-xl flex flex-col rounded-[2.5rem] shadow-[0_0_60px_rgba(0,0,0,0.2)] overflow-hidden" 
+        style={isRotated ? {
+          width: 'calc(100vh - 32px)',
+          maxWidth: '800px',
+          height: 'calc(100vw - 32px)',
+          maxHeight: '448px', // max-w-md
+          transform: 'rotate(-90deg)'
+        } : {
+          width: 'calc(100vw - 32px)',
+          maxWidth: '448px', // max-w-md
+          height: 'calc(100vh - 32px)',
+          maxHeight: '800px'
+        }}
+      >
+        <div className="px-8 pt-8 pb-4 text-center text-slate-800 text-xl font-bold z-10 shrink-0">
+          {title}
+        </div>
+        
+        <div className="flex-1 relative mx-8 mb-4 rounded-2xl overflow-hidden border border-slate-200/60 bg-white shadow-inner">
           <canvas
             ref={canvasRef}
             onMouseDown={startDrawing}
@@ -154,19 +234,20 @@ export default function SignaturePad({ onSave, onClose, title = "請在下方簽
             onTouchStart={startDrawing}
             onTouchMove={draw}
             onTouchEnd={stopDrawing}
-            className="w-full h-72 touch-none cursor-crosshair bg-slate-50/50"
+            className="absolute inset-0 w-full h-full touch-none cursor-crosshair"
           />
-          <div className="absolute bottom-4 left-4 right-4 flex space-x-3">
-            <button onClick={onClose} className="px-4 py-2 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium flex items-center justify-center shadow-sm active:scale-95 transition-transform hover:bg-slate-50">
-              取消
-            </button>
-            <button onClick={clear} className="px-4 py-2 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium flex items-center justify-center shadow-sm active:scale-95 transition-transform hover:bg-slate-50">
-              清除
-            </button>
-            <button onClick={save} className="flex-1 py-2 bg-cyan-600 text-white rounded-xl font-bold shadow-[0_0_20px_rgba(8,145,178,0.2)] active:scale-95 transition-transform hover:bg-cyan-700">
-              確認簽名
-            </button>
-          </div>
+        </div>
+        
+        <div className="p-8 pt-2 bg-transparent flex space-x-4 z-10 shrink-0">
+          <button onClick={onClose} className="flex-1 py-4 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium shadow-sm active:scale-95 transition-transform hover:bg-slate-50">
+            取消
+          </button>
+          <button onClick={clear} className="flex-1 py-4 bg-white border border-slate-200/60 text-slate-600 rounded-xl font-medium shadow-sm active:scale-95 transition-transform hover:bg-slate-50">
+            清除
+          </button>
+          <button onClick={save} className="flex-[2] py-4 bg-cyan-600 text-white rounded-xl font-bold shadow-[0_0_20px_rgba(8,145,178,0.2)] active:scale-95 transition-transform hover:bg-cyan-700">
+            確認簽名
+          </button>
         </div>
       </div>
     </div>

@@ -29,14 +29,14 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
   const now = new Date();
   const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
   
-  // Show all pending/late records + today's completed records
+  // Show only today's records
   const dashboardRecords = records.filter(r => 
-    r.status === 'scheduled' || r.date === today
+    r.date === today
   ).sort((a, b) => {
-    // Sort by date and time
-    const dateTimeA = new Date(`${a.date}T${a.time}`).getTime();
-    const dateTimeB = new Date(`${b.date}T${b.time}`).getTime();
-    return dateTimeA - dateTimeB;
+    // Sort by time
+    const timeA = new Date(`1970/01/01 ${a.time}`).getTime();
+    const timeB = new Date(`1970/01/01 ${b.time}`).getTime();
+    return timeA - timeB;
   });
 
   const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`; // YYYY-MM

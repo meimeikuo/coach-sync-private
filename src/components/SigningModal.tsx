@@ -63,7 +63,7 @@ export default function SigningModal({ record, onClose, onSign }: SigningModalPr
               </label>
               <div 
                 onClick={() => setActivePad('coach')}
-                className="w-full bg-white/80 border border-slate-200/60 rounded-xl py-4 px-4 h-24 text-sm text-slate-400 cursor-pointer hover:bg-white hover:border-cyan-500 transition-all shadow-sm flex items-center justify-center group relative overflow-hidden"
+                className="w-full bg-white/80 border border-slate-200/60 rounded-xl py-4 px-4 h-40 text-sm text-slate-400 cursor-pointer hover:bg-white hover:border-cyan-500 transition-all shadow-sm flex items-center justify-center group relative overflow-hidden"
               >
                 {coachSig ? (
                   <img src={coachSig} alt="Coach Signature" className="h-full object-contain absolute inset-0 m-auto" />
@@ -82,7 +82,7 @@ export default function SigningModal({ record, onClose, onSign }: SigningModalPr
               </label>
               <div 
                 onClick={() => setActivePad('student')}
-                className="w-full bg-white/80 border border-slate-200/60 rounded-xl py-4 px-4 h-24 text-sm text-slate-400 cursor-pointer hover:bg-white hover:border-cyan-500 transition-all shadow-sm flex items-center justify-center group relative overflow-hidden"
+                className="w-full bg-white/80 border border-slate-200/60 rounded-xl py-4 px-4 h-40 text-sm text-slate-400 cursor-pointer hover:bg-white hover:border-cyan-500 transition-all shadow-sm flex items-center justify-center group relative overflow-hidden"
               >
                 {studentSig ? (
                   <img src={studentSig} alt="Student Signature" className="h-full object-contain absolute inset-0 m-auto" />
