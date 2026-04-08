@@ -26,6 +26,7 @@ export interface PurchaseRecord {
   previousTotal: number;
   type: 'initial' | 'renewal';
   createdAt: number;
+  onlineDuration?: 'quarter' | 'half' | 'year';
 }
 
 export interface ClassRecord {

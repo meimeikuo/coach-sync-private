@@ -156,7 +156,8 @@ export default function App() {
         purchaseDate: localDate,
         previousTotal: 0,
         type: 'initial',
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        ...(studentData.courseType === 'online' ? { onlineDuration: studentData.onlineDuration } : {})
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'students');
@@ -231,6 +232,39 @@ export default function App() {
           previousTotal: studentData.totalClasses || 0,
           type: 'renewal',
           createdAt: Date.now()
+        });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `students/${studentId}`);
+    }
+  };
+
+  const handleRenewOnlineClasses = async (studentId: string, duration: 'quarter' | 'half' | 'year', startDate: string, endDate: string) => {
+    try {
+      const studentRef = doc(db, 'students', studentId);
+      const studentSnap = await getDoc(studentRef);
+      
+      if (studentSnap.exists()) {
+        const studentData = studentSnap.data() as Student;
+        const now = new Date();
+        const localDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+
+        await updateDoc(studentRef, {
+          onlineDuration: duration,
+          startDate: startDate,
+          endDate: endDate
+        });
+
+        // Create renewal purchase record
+        await addDoc(collection(db, 'purchase_records'), {
+          studentId: studentId,
+          studentName: studentData.name,
+          purchasedAmount: 0,
+          purchaseDate: localDate,
+          previousTotal: 0,
+          type: 'renewal',
+          createdAt: Date.now(),
+          onlineDuration: duration
         });
       }
     } catch (error) {
@@ -337,7 +371,7 @@ export default function App() {
         {/* Main Content Area */}
         <div className="flex-1 overflow-hidden pb-24 sm:pb-16 z-10">
           {activeTab === 'dashboard' && <Dashboard students={students} records={records} onNavigate={setActiveTab} onSignRecord={handleSignRecord} onUpdateRecord={handleUpdateRecord} onScheduleClass={handleScheduleClass} onAddStudentClick={() => { setActiveTab('students'); setIsAddingStudent(true); }} />}
-          {activeTab === 'students' && <Students students={students} records={records} purchaseRecords={purchaseRecords} isAddingStudent={isAddingStudent} onAddModalClose={() => setIsAddingStudent(false)} onAddStudent={handleAddStudent} onScheduleClass={handleScheduleClass} onRenewClasses={handleRenewClasses} onDeleteStudent={handleDeleteStudent} onUpdateRecord={handleUpdateRecord} onUpdateStudentName={handleUpdateStudentName} onSignRecord={handleSignRecord} />}
+          {activeTab === 'students' && <Students students={students} records={records} purchaseRecords={purchaseRecords} isAddingStudent={isAddingStudent} onAddModalClose={() => setIsAddingStudent(false)} onAddStudent={handleAddStudent} onScheduleClass={handleScheduleClass} onRenewClasses={handleRenewClasses} onRenewOnlineClasses={handleRenewOnlineClasses} onDeleteStudent={handleDeleteStudent} onUpdateRecord={handleUpdateRecord} onUpdateStudentName={handleUpdateStudentName} onSignRecord={handleSignRecord} />}
           {activeTab === 'records' && <Records records={records} onSignRecord={handleSignRecord} onUpdateRecord={handleUpdateRecord} />}
         </div>
 

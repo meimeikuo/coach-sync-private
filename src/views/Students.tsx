@@ -16,13 +16,14 @@ interface StudentsProps {
   onAddStudent: (student: Omit<Student, 'id' | 'joinDate'>) => void;
   onScheduleClass: (record: Omit<ClassRecord, 'id' | 'createdAt' | 'status'>) => void;
   onRenewClasses: (studentId: string, additionalClasses: number) => void;
+  onRenewOnlineClasses: (studentId: string, duration: 'quarter' | 'half' | 'year', startDate: string, endDate: string) => void;
   onDeleteStudent: (studentId: string) => void;
   onUpdateRecord: (id: string, date: string, time: string) => void;
   onUpdateStudentName?: (id: string, newName: string) => void;
   onSignRecord: (id: string, coachSig: string, studentSig: string) => void;
 }
 
-export default function Students({ students, records, purchaseRecords = [], isAddingStudent, onAddModalClose, onAddStudent, onScheduleClass, onRenewClasses, onDeleteStudent, onUpdateRecord, onUpdateStudentName, onSignRecord }: StudentsProps) {
+export default function Students({ students, records, purchaseRecords = [], isAddingStudent, onAddModalClose, onAddStudent, onScheduleClass, onRenewClasses, onRenewOnlineClasses, onDeleteStudent, onUpdateRecord, onUpdateStudentName, onSignRecord }: StudentsProps) {
   const [search, setSearch] = useState('');
   const [courseTypeTab, setCourseTypeTab] = useState<'physical' | 'online'>('physical');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -205,6 +206,28 @@ export default function Students({ students, records, purchaseRecords = [], isAd
   const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
 
   const [renewAmount, setRenewAmount] = useState(10);
+  const [renewOnlineDuration, setRenewOnlineDuration] = useState<'quarter' | 'half' | 'year'>('quarter');
+  const [renewStartDate, setRenewStartDate] = useState('');
+  const [renewEndDate, setRenewEndDate] = useState('');
+
+  useEffect(() => {
+    if (renewingStudent?.courseType === 'online') {
+      let nextStartDate = new Date();
+      if (renewingStudent.endDate) {
+        const currentEnd = new Date(renewingStudent.endDate);
+        nextStartDate = new Date(currentEnd.getTime() + 24 * 60 * 60 * 1000);
+      }
+      const startDateStr = `${nextStartDate.getFullYear()}-${(nextStartDate.getMonth() + 1).toString().padStart(2, '0')}-${nextStartDate.getDate().toString().padStart(2, '0')}`;
+      setRenewStartDate(startDateStr);
+      setRenewEndDate(calculateEndDate(startDateStr, renewOnlineDuration));
+    }
+  }, [renewingStudent]);
+
+  useEffect(() => {
+    if (renewingStudent?.courseType === 'online') {
+      setRenewEndDate(calculateEndDate(renewStartDate, renewOnlineDuration));
+    }
+  }, [renewStartDate, renewOnlineDuration]);
 
   const viewingRecord = records.find(r => r.id === viewingRecordId);
 
@@ -296,12 +319,16 @@ export default function Students({ students, records, purchaseRecords = [], isAd
     
     if (!renewingStudent) return;
     
-    if (renewAmount <= 0) {
-      setFormError('請輸入有效的堂數');
-      return;
+    if (renewingStudent.courseType === 'online') {
+      onRenewOnlineClasses(renewingStudent.id, renewOnlineDuration, renewStartDate, renewEndDate);
+    } else {
+      if (renewAmount <= 0) {
+        setFormError('請輸入有效的堂數');
+        return;
+      }
+      onRenewClasses(renewingStudent.id, renewAmount);
     }
-
-    onRenewClasses(renewingStudent.id, renewAmount);
+    
     setRenewingStudent(null);
     setRenewAmount(10);
   };
@@ -385,9 +412,6 @@ export default function Students({ students, records, purchaseRecords = [], isAd
               <div>
                 <div className="flex items-center space-x-2">
                   <h3 className="font-semibold text-slate-900">{student.name}</h3>
-                  {student.courseType === 'online' && (
-                    <span className="px-1.5 py-0.5 bg-cyan-50 text-cyan-600 text-[10px] font-bold rounded border border-cyan-100">線上</span>
-                  )}
                 </div>
               </div>
             </div>
@@ -415,15 +439,17 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                 >
                   <span>🔄 續課</span>
                 </button>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSchedulingStudent(student);
-                  }}
-                  className="flex items-center space-x-1 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-xs font-bold active:scale-95 transition-transform hover:bg-blue-100"
-                >
-                  <span>📅 排課</span>
-                </button>
+                {student.courseType !== 'online' && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSchedulingStudent(student);
+                    }}
+                    className="flex items-center space-x-1 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-xs font-bold active:scale-95 transition-transform hover:bg-blue-100"
+                  >
+                    <span>📅 排課</span>
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
@@ -488,39 +514,49 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                 </div>
               </div>
               <div className="px-5 sm:px-6 pb-4">
-                <div className="flex bg-slate-100 p-1 rounded-xl">
-                  <button
-                    onClick={() => setRecordTab('scheduled')}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                      recordTab === 'scheduled' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500'
-                    }`}
-                  >
-                    已約課
-                  </button>
-                  <button
-                    onClick={() => setRecordTab('completed')}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                      recordTab === 'completed' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'
-                    }`}
-                  >
-                    已完成
-                  </button>
-                  <button
-                    onClick={() => setRecordTab('purchases')}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                      recordTab === 'purchases' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'
-                    }`}
-                  >
-                    購課紀錄
-                  </button>
-                </div>
+                {viewingStudent.courseType !== 'online' ? (
+                  <div className="flex bg-slate-100 p-1 rounded-xl">
+                    <button
+                      onClick={() => setRecordTab('scheduled')}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                        recordTab === 'scheduled' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500'
+                      }`}
+                    >
+                      已約課
+                    </button>
+                    <button
+                      onClick={() => setRecordTab('completed')}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                        recordTab === 'completed' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'
+                      }`}
+                    >
+                      已完成
+                    </button>
+                    <button
+                      onClick={() => setRecordTab('purchases')}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                        recordTab === 'purchases' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'
+                      }`}
+                    >
+                      購課紀錄
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex bg-slate-100 p-1 rounded-xl">
+                    <button
+                      className="flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-white text-indigo-600 shadow-sm"
+                    >
+                      購課紀錄
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50 relative z-10">
               <div className="space-y-3">
                 {(() => {
-                  if (recordTab === 'purchases') {
+                  if (viewingStudent.courseType === 'online' || recordTab === 'purchases') {
                     const studentPurchases = purchaseRecords.filter(p => p.studentId === viewingStudent.id);
                     
                     if (studentPurchases.length === 0) {
@@ -543,10 +579,20 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                             <div className="text-xs text-slate-500">{purchase.purchaseDate}</div>
                           </div>
                           <div className="flex flex-col items-end space-y-2">
-                            <div className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${purchase.type === 'initial' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
-                              +{purchase.purchasedAmount} 堂
-                            </div>
-                            {purchase.type === 'renewal' && (
+                            {purchase.onlineDuration ? (
+                              <div className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${purchase.type === 'initial' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                                {purchase.onlineDuration === 'quarter' ? '一季' : purchase.onlineDuration === 'half' ? '半年' : '一年'}
+                              </div>
+                            ) : viewingStudent.courseType === 'online' ? (
+                              <div className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${purchase.type === 'initial' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                                {viewingStudent.onlineDuration === 'quarter' ? '一季' : viewingStudent.onlineDuration === 'half' ? '半年' : viewingStudent.onlineDuration === 'year' ? '一年' : '線上課程'}
+                              </div>
+                            ) : (
+                              <div className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${purchase.type === 'initial' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                                +{purchase.purchasedAmount} 堂
+                              </div>
+                            )}
+                            {purchase.type === 'renewal' && !purchase.onlineDuration && viewingStudent.courseType !== 'online' && (
                               <div className="text-[10px] text-slate-400">
                                 續課前總堂數: {purchase.previousTotal}
                               </div>
@@ -937,16 +983,24 @@ export default function Students({ students, records, purchaseRecords = [], isAd
             <div onClick={(e) => e.stopPropagation()}>
               <CustomDatePicker 
                 value={
-                  datePickerTarget === 'start' ? newStudent.startDate : 
-                  datePickerTarget === 'end' ? newStudent.endDate : 
+                  datePickerTarget === 'start' ? (renewingStudent?.courseType === 'online' ? renewStartDate : newStudent.startDate) : 
+                  datePickerTarget === 'end' ? (renewingStudent?.courseType === 'online' ? renewEndDate : newStudent.endDate) : 
                   scheduleData.date
                 } 
-                allowPast={showAddModal}
+                allowPast={showAddModal || !!renewingStudent}
                 onChange={(date) => {
                   if (datePickerTarget === 'start') {
-                    setNewStudent({...newStudent, startDate: date});
+                    if (renewingStudent?.courseType === 'online') {
+                      setRenewStartDate(date);
+                    } else {
+                      setNewStudent({...newStudent, startDate: date});
+                    }
                   } else if (datePickerTarget === 'end') {
-                    setNewStudent({...newStudent, endDate: date});
+                    if (renewingStudent?.courseType === 'online') {
+                      setRenewEndDate(date);
+                    } else {
+                      setNewStudent({...newStudent, endDate: date});
+                    }
                   } else {
                     setScheduleData({...scheduleData, date});
                   }
@@ -995,47 +1049,127 @@ export default function Students({ students, records, purchaseRecords = [], isAd
             </div>
             
             <form onSubmit={handleRenew} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">購買堂數</label>
-                <div className="relative">
-                  <input 
-                    type="number" 
-                    value={renewAmount}
-                    onChange={e => {
-                      setRenewAmount(parseInt(e.target.value) || 0);
-                      if (formError) setFormError(null);
-                    }}
-                    className={`w-full bg-white/80 border ${formError ? 'border-red-400 focus:ring-red-500' : 'border-slate-200/60 focus:border-emerald-500 focus:ring-emerald-500'} rounded-xl px-4 py-3 text-slate-900 focus:bg-white focus:ring-1 outline-none transition-all shadow-sm`}
-                  />
-                  {formError && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="absolute left-0 right-0 top-full mt-1 z-20"
-                    >
-                      <div className="bg-red-500 text-white text-[10px] px-3 py-1.5 rounded-lg shadow-lg flex items-center space-x-1.5 w-fit">
-                        <span>⚠️</span>
-                        <span>{formError}</span>
-                      </div>
-                    </motion.div>
-                  )}
+              {renewingStudent.courseType === 'online' ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">課程時間</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'quarter', label: '一季' },
+                        { id: 'half', label: '半年' },
+                        { id: 'year', label: '一年' }
+                      ].map(dur => (
+                        <button
+                          key={dur.id}
+                          type="button"
+                          onClick={() => setRenewOnlineDuration(dur.id as any)}
+                          className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                            renewOnlineDuration === dur.id
+                              ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {dur.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">開始時間</label>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setDatePickerTarget('start');
+                          setShowInlineDatePicker(true);
+                        }}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
+                      >
+                        <span className="font-medium text-slate-700">{renewStartDate.replace(/-/g, '/')}</span>
+                        <span className="text-cyan-600">📅</span>
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">結束時間</label>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setDatePickerTarget('end');
+                          setShowInlineDatePicker(true);
+                        }}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
+                      >
+                        <span className="font-medium text-slate-700">{renewEndDate.replace(/-/g, '/')}</span>
+                        <span className="text-cyan-600">📅</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-slate-500">目前剩餘堂數</span>
-                  <span className="font-medium text-slate-900">{renewingStudent.remainingClasses || 0} 堂</span>
-                </div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-slate-500">新增堂數</span>
-                  <span className="font-medium text-emerald-600">+{renewAmount} 堂</span>
-                </div>
-                <div className="flex justify-between text-sm font-bold pt-2 border-t border-slate-200">
-                  <span className="text-slate-700">續課後總剩餘</span>
-                  <span className="text-emerald-600">{(renewingStudent.remainingClasses || 0) + renewAmount} 堂</span>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">購買堂數</label>
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      {[12, 24, 36].map(amount => (
+                        <button
+                          key={amount}
+                          type="button"
+                          onClick={() => {
+                            setRenewAmount(amount);
+                            setFormError(null);
+                          }}
+                          className={`py-2 rounded-xl font-bold text-sm transition-all ${
+                            renewAmount === amount
+                              ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/30'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {amount} 堂
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="number" 
+                        value={renewAmount}
+                        onChange={e => {
+                          setRenewAmount(parseInt(e.target.value) || 0);
+                          if (formError) setFormError(null);
+                        }}
+                        className={`w-full bg-white/80 border ${formError ? 'border-red-400 focus:ring-red-500' : 'border-slate-200/60 focus:border-emerald-500 focus:ring-emerald-500'} rounded-xl px-4 py-3 text-slate-900 focus:bg-white focus:ring-1 outline-none transition-all shadow-sm`}
+                        placeholder="自訂堂數"
+                      />
+                      {formError && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="absolute left-0 right-0 top-full mt-1 z-20"
+                        >
+                          <div className="bg-red-500 text-white text-[10px] px-3 py-1.5 rounded-lg shadow-lg flex items-center space-x-1.5 w-fit">
+                            <span>⚠️</span>
+                            <span>{formError}</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4">
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-slate-500">目前剩餘堂數</span>
+                      <span className="font-medium text-slate-900">{renewingStudent.remainingClasses || 0} 堂</span>
+                    </div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-slate-500">新增堂數</span>
+                      <span className="font-medium text-emerald-600">+{renewAmount} 堂</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold pt-2 border-t border-slate-200">
+                      <span className="text-slate-700">續課後總剩餘</span>
+                      <span className="text-emerald-600">{(renewingStudent.remainingClasses || 0) + renewAmount} 堂</span>
+                    </div>
+                  </div>
+                </>
+              )}
               
               <button 
                 type="submit"
