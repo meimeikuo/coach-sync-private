@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ClassRecord } from '../types';
 import SigningModal from '../components/SigningModal';
 import ViewRecordModal from '../components/ViewRecordModal';
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass } from '../utils/recordUtils';
 
 interface RecordsProps {
   records: ClassRecord[];
@@ -12,7 +13,7 @@ interface RecordsProps {
 
 export default function Records({ records, onSignRecord, onUpdateRecord }: RecordsProps) {
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'scheduled' | 'completed'>('scheduled');
+  const [activeTab, setActiveTab] = useState<'scheduled' | 'unsigned' | 'completed'>('scheduled');
   const [signingRecord, setSigningRecord] = useState<ClassRecord | null>(null);
   const [viewingRecordId, setViewingRecordId] = useState<string | null>(null);
 
@@ -25,14 +26,28 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
     return dateB.getTime() - dateA.getTime();
   });
 
-  const filteredRecords = sortedRecords.filter(r => 
-    r.status === activeTab &&
-    r.studentName.includes(search)
-  );
+  const filteredRecords = sortedRecords.filter(r => {
+    const displayStatus = getRecordDisplayStatus(r);
+    const matchesSearch = r.studentName.includes(search);
+    
+    if (activeTab === 'scheduled') return displayStatus === 'scheduled' && matchesSearch;
+    if (activeTab === 'unsigned') return displayStatus === 'late_pending' && matchesSearch;
+    if (activeTab === 'completed') return displayStatus === 'completed' && matchesSearch;
+    return false;
+  });
 
   const handleSign = (id: string, coachSig: string, studentSig: string) => {
     onSignRecord(id, coachSig, studentSig);
     setSigningRecord(null);
+  };
+
+  const getEmptyMessage = () => {
+    switch (activeTab) {
+      case 'scheduled': return '目前無待簽課紀錄';
+      case 'unsigned': return '目前無未簽名紀錄';
+      case 'completed': return '目前無已完成紀錄';
+      default: return '目前無紀錄';
+    }
   };
 
   return (
@@ -64,6 +79,15 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
             )}
           </button>
           <button 
+            onClick={() => setActiveTab('unsigned')}
+            className={`pb-3 text-sm font-bold relative ${activeTab === 'unsigned' ? 'text-cyan-600' : 'text-slate-400 hover:text-slate-500'}`}
+          >
+            未簽名
+            {activeTab === 'unsigned' && (
+              <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]" />
+            )}
+          </button>
+          <button 
             onClick={() => setActiveTab('completed')}
             className={`pb-3 text-sm font-bold relative ${activeTab === 'completed' ? 'text-cyan-600' : 'text-slate-400 hover:text-slate-500'}`}
           >
@@ -79,7 +103,7 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
         {filteredRecords.length === 0 ? (
           <div className="text-center py-10 text-slate-400">
             <div className="text-5xl mb-3 opacity-50">📅</div>
-            <p>目前無{activeTab === 'scheduled' ? '待簽課' : '已完成'}紀錄</p>
+            <p>{getEmptyMessage()}</p>
           </div>
         ) : (
           filteredRecords.map((record, index) => (
@@ -88,13 +112,13 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               key={record.id} 
-              onClick={() => activeTab === 'scheduled' ? setSigningRecord(record) : setViewingRecordId(record.id)}
+              onClick={() => record.status === 'scheduled' ? setSigningRecord(record) : setViewingRecordId(record.id)}
               className="bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 cursor-pointer active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_25px_rgba(6,182,212,0.2)] hover:border-cyan-200 group relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-500" />
               <div className="relative z-10 flex justify-between items-start mb-3">
                 <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border transition-all ${activeTab === 'scheduled' ? 'bg-slate-50 text-slate-500 border-slate-200 group-hover:bg-cyan-50 group-hover:text-cyan-600 group-hover:border-cyan-100' : 'bg-cyan-50 text-cyan-600 border-cyan-100 group-hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border transition-all ${record.status === 'scheduled' ? 'bg-slate-50 text-slate-500 border-slate-200 group-hover:bg-cyan-50 group-hover:text-cyan-600 group-hover:border-cyan-100' : 'bg-cyan-50 text-cyan-600 border-cyan-100 group-hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'}`}>
                     {record.studentName.charAt(0)}
                   </div>
                   <div>
@@ -111,10 +135,10 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
               
               <div className="relative z-10 flex items-center justify-between pt-3 border-t border-slate-100">
                 <span className="text-xs text-slate-400">
-                  {activeTab === 'scheduled' ? '點擊進行簽課' : `簽名時間：${new Date(record.signedAt || record.createdAt).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+                  {record.status === 'scheduled' ? '點擊進行簽課' : `簽名時間：${new Date(record.signedAt || record.createdAt).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
                 </span>
-                <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${activeTab === 'scheduled' ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-cyan-50 text-cyan-600 border-cyan-100'}`}>
-                  {activeTab === 'scheduled' ? '待簽名' : '已完成'}
+                <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${getStatusColorClass(getRecordDisplayStatus(record))}`}>
+                  {getStatusLabel(getRecordDisplayStatus(record))}
                 </span>
               </div>
             </motion.div>

@@ -5,9 +5,10 @@ interface CustomDatePickerProps {
   value: string;
   onChange: (date: string) => void;
   onClose: () => void;
+  allowPast?: boolean;
 }
 
-export default function CustomDatePicker({ value, onChange, onClose }: CustomDatePickerProps) {
+export default function CustomDatePicker({ value, onChange, onClose, allowPast = false }: CustomDatePickerProps) {
   const [viewDate, setViewDate] = useState(new Date(value || new Date()));
   const selectedDate = value ? new Date(value) : new Date();
 
@@ -29,7 +30,7 @@ export default function CustomDatePicker({ value, onChange, onClose }: CustomDat
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    if (date < today) return;
+    if (!allowPast && date < today) return;
 
     const formattedDate = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
     onChange(formattedDate);
@@ -78,7 +79,7 @@ export default function CustomDatePicker({ value, onChange, onClose }: CustomDat
             const date = new Date(year, month, d);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const isPast = date < today;
+            const isPast = !allowPast && date < today;
 
             const isSelected = selectedDate.getFullYear() === year && 
                                selectedDate.getMonth() === month && 

@@ -6,6 +6,8 @@ import ViewRecordModal from '../components/ViewRecordModal';
 import QuickBookingModal from '../components/QuickBookingModal';
 import EditLessonModal from '../components/EditLessonModal';
 
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass } from '../utils/recordUtils';
+
 interface DashboardProps {
   students: Student[];
   records: ClassRecord[];
@@ -26,7 +28,16 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
   const viewingRecord = records.find(r => r.id === viewingRecordId);
   const now = new Date();
   const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-  const todayRecords = records.filter(r => r.date === today);
+  
+  // Show all pending/late records + today's completed records
+  const dashboardRecords = records.filter(r => 
+    r.status === 'scheduled' || r.date === today
+  ).sort((a, b) => {
+    // Sort by date and time
+    const dateTimeA = new Date(`${a.date}T${a.time}`).getTime();
+    const dateTimeB = new Date(`${b.date}T${b.time}`).getTime();
+    return dateTimeA - dateTimeB;
+  });
 
   const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`; // YYYY-MM
   const monthRecords = records.filter(r => r.date.startsWith(currentMonth));
@@ -44,7 +55,7 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
     >
       <header className="pt-4 pb-2">
         <h1 className="text-2xl font-bold text-slate-900">Jason Huang 黃文新 💪🏻</h1>
-        <p className="text-sm text-slate-500 mt-1">今天有 {todayRecords.length} 堂課</p>
+        <p className="text-sm text-slate-500 mt-1">目前有 {dashboardRecords.filter(r => r.status === 'scheduled').length} 堂待簽課程</p>
       </header>
 
       {/* Stats Grid */}
@@ -155,34 +166,37 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
         </div>
         
         <div className="space-y-3">
-          {todayRecords.length === 0 ? (
+          {dashboardRecords.length === 0 ? (
             <div className="bg-white/60 backdrop-blur-md rounded-2xl p-6 text-center border border-slate-200/50">
-              <p className="text-slate-500 text-sm">今日目前無課程紀錄</p>
+              <p className="text-slate-500 text-sm">目前無待簽或今日課程紀錄</p>
             </div>
           ) : (
-            todayRecords.map(record => (
-              <div 
-                key={record.id} 
-                onClick={() => record.status === 'scheduled' && setSigningRecord(record)}
-                className={`bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 flex justify-between items-center relative overflow-hidden group ${record.status === 'scheduled' ? 'cursor-pointer active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] hover:border-cyan-200' : ''}`}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-500" />
-                <div className="relative z-10 flex items-center space-x-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border transition-colors ${record.status === 'completed' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' : 'bg-slate-50 text-slate-500 border-slate-200 group-hover:bg-cyan-50 group-hover:text-cyan-600 group-hover:border-cyan-100'}`}>
-                    {record.studentName.charAt(0)}
+            dashboardRecords.map(record => {
+              const displayStatus = getRecordDisplayStatus(record);
+              return (
+                <div 
+                  key={record.id} 
+                  onClick={() => record.status === 'scheduled' && setSigningRecord(record)}
+                  className={`bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 flex justify-between items-center relative overflow-hidden group ${record.status === 'scheduled' ? 'cursor-pointer active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] hover:border-cyan-200' : ''}`}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-500" />
+                  <div className="relative z-10 flex items-center space-x-4">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border transition-colors ${record.status === 'completed' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' : 'bg-slate-50 text-slate-500 border-slate-200 group-hover:bg-cyan-50 group-hover:text-cyan-600 group-hover:border-cyan-100'}`}>
+                      {record.studentName.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
+                      <p className="text-xs text-slate-500">{record.date} {record.time}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
-                    <p className="text-xs text-slate-500">{record.time}</p>
+                  <div className="flex flex-col items-end space-y-2">
+                    <div className={`px-3 py-1 text-[10px] font-bold rounded-full border ${getStatusColorClass(displayStatus)}`}>
+                      {getStatusLabel(displayStatus)}
+                    </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end space-y-2">
-                  <div className={`px-3 py-1 text-[10px] font-bold rounded-full border ${record.status === 'completed' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                    {record.status === 'completed' ? '已簽到' : '未簽到'}
-                  </div>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -212,31 +226,34 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
                   <p>本月尚無課程紀錄</p>
                 </div>
               ) : (
-                [...monthRecords].sort((a, b) => b.date.localeCompare(a.date)).map(record => (
-                  <div 
-                    key={record.id}
-                    onClick={() => {
-                      setShowMonthModal(false);
-                      setViewingRecordId(record.id);
-                    }}
-                    className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center cursor-pointer active:scale-95 transition-all hover:border-cyan-200"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border ${record.status === 'completed' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                        {record.studentName.charAt(0)}
+                [...monthRecords].sort((a, b) => b.date.localeCompare(a.date)).map(record => {
+                  const displayStatus = getRecordDisplayStatus(record);
+                  return (
+                    <div 
+                      key={record.id}
+                      onClick={() => {
+                        setShowMonthModal(false);
+                        setViewingRecordId(record.id);
+                      }}
+                      className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center cursor-pointer active:scale-95 transition-all hover:border-cyan-200"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border ${getStatusColorClass(displayStatus)}`}>
+                          {record.studentName.charAt(0)}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
+                          <p className="text-[10px] text-slate-500">{record.date} {record.time}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
-                        <p className="text-[10px] text-slate-500">{record.date} {record.time}</p>
+                      <div className="flex flex-col items-end space-y-2">
+                        <div className={`px-2 py-1 text-[10px] font-bold rounded-md border ${getStatusColorClass(displayStatus)}`}>
+                          {getStatusLabel(displayStatus)}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end space-y-2">
-                      <div className={`px-2 py-1 text-[10px] font-bold rounded-md border ${record.status === 'completed' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                        {record.status === 'completed' ? '已完成' : '待簽名'}
-                      </div>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </motion.div>

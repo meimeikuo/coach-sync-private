@@ -22,6 +22,7 @@ interface StudentsProps {
 
 export default function Students({ students, records, purchaseRecords = [], isAddingStudent, onAddModalClose, onAddStudent, onScheduleClass, onRenewClasses, onDeleteStudent, onUpdateRecord, onUpdateStudentName }: StudentsProps) {
   const [search, setSearch] = useState('');
+  const [courseTypeTab, setCourseTypeTab] = useState<'physical' | 'online'>('physical');
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
@@ -53,25 +54,62 @@ export default function Students({ students, records, purchaseRecords = [], isAd
     name: string;
     remainingClasses: number;
     totalClasses: number;
+    courseType: 'online' | 'physical';
+    onlineDuration: 'quarter' | 'half' | 'year';
+    startDate: string;
+    endDate: string;
   }>({
     name: '',
     remainingClasses: 10,
-    totalClasses: 10
+    totalClasses: 10,
+    courseType: 'physical',
+    onlineDuration: 'quarter',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: ''
   });
+
+  const calculateEndDate = (startDateStr: string, duration: 'quarter' | 'half' | 'year') => {
+    if (!startDateStr) return '';
+    const start = new Date(startDateStr);
+    let weeks = 13;
+    if (duration === 'half') weeks = 26;
+    if (duration === 'year') weeks = 52;
+    
+    const end = new Date(start.getTime());
+    end.setDate(start.getDate() + (weeks * 7) - 1);
+    
+    return `${end.getFullYear()}-${(end.getMonth() + 1).toString().padStart(2, '0')}-${end.getDate().toString().padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    if (newStudent.courseType === 'online') {
+      const calculatedEnd = calculateEndDate(newStudent.startDate, newStudent.onlineDuration);
+      if (calculatedEnd !== newStudent.endDate) {
+        setNewStudent(prev => ({ ...prev, endDate: calculatedEnd }));
+      }
+    }
+  }, [newStudent.startDate, newStudent.onlineDuration, newStudent.courseType]);
 
   const [scheduleData, setScheduleData] = useState(() => {
     const now = new Date();
     const defaultDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
     const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
-    const minutes = defaultTimeDate.getMinutes();
-    const roundedMinutes = Math.ceil(minutes / 5) * 5;
-    if (roundedMinutes >= 60) {
-      defaultTimeDate.setHours(defaultTimeDate.getHours() + 1);
-      defaultTimeDate.setMinutes(0);
+    let h = defaultTimeDate.getHours();
+    let m = defaultTimeDate.getMinutes();
+    
+    if (m > 0 && m <= 30) {
+      m = 30;
+    } else if (m > 30) {
+      m = 0;
+      h += 1;
     } else {
-      defaultTimeDate.setMinutes(roundedMinutes);
+      m = 0;
     }
-    const defaultTime = `${defaultTimeDate.getHours().toString().padStart(2, '0')}:${defaultTimeDate.getMinutes().toString().padStart(2, '0')}`;
+    
+    if (h < 9) { h = 9; m = 0; }
+    else if (h >= 21) { h = 21; m = 0; }
+    
+    const defaultTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     return {
       date: defaultDate,
       time: defaultTime
@@ -89,17 +127,23 @@ export default function Students({ students, records, purchaseRecords = [], isAd
     const [h, m] = currentTime.split(':').map(Number);
     
     if (h < currentHour || (h === currentHour && m <= currentMinute)) {
-      // Find next available 5-minute slot
-      let nextMinute = Math.ceil((currentMinute + 1) / 5) * 5;
-      let nextHour = currentHour;
+      const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
+      let nh = defaultTimeDate.getHours();
+      let nm = defaultTimeDate.getMinutes();
       
-      if (nextMinute >= 60) {
-        nextMinute = 0;
-        nextHour += 1;
+      if (nm > 0 && nm <= 30) {
+        nm = 30;
+      } else if (nm > 30) {
+        nm = 0;
+        nh += 1;
+      } else {
+        nm = 0;
       }
       
-      if (nextHour >= 24) return '23:55';
-      return `${nextHour.toString().padStart(2, '0')}:${nextMinute.toString().padStart(2, '0')}`;
+      if (nh < 9) { nh = 9; nm = 0; }
+      else if (nh >= 21) { nh = 21; nm = 0; }
+      
+      return `${nh.toString().padStart(2, '0')}:${nm.toString().padStart(2, '0')}`;
     }
     
     return currentTime;
@@ -110,15 +154,22 @@ export default function Students({ students, records, purchaseRecords = [], isAd
       const now = new Date();
       const dateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
       const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
-      const minutes = defaultTimeDate.getMinutes();
-      const roundedMinutes = Math.ceil(minutes / 5) * 5;
-      if (roundedMinutes >= 60) {
-        defaultTimeDate.setHours(defaultTimeDate.getHours() + 1);
-        defaultTimeDate.setMinutes(0);
+      let h = defaultTimeDate.getHours();
+      let m = defaultTimeDate.getMinutes();
+      
+      if (m > 0 && m <= 30) {
+        m = 30;
+      } else if (m > 30) {
+        m = 0;
+        h += 1;
       } else {
-        defaultTimeDate.setMinutes(roundedMinutes);
+        m = 0;
       }
-      const defaultTime = `${defaultTimeDate.getHours().toString().padStart(2, '0')}:${defaultTimeDate.getMinutes().toString().padStart(2, '0')}`;
+      
+      if (h < 9) { h = 9; m = 0; }
+      else if (h >= 21) { h = 21; m = 0; }
+      
+      const defaultTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
       
       setScheduleData({
         date: dateStr,
@@ -135,6 +186,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
   }, [scheduleData.date]);
 
   const [showInlineDatePicker, setShowInlineDatePicker] = useState(false);
+  const [datePickerTarget, setDatePickerTarget] = useState<'schedule' | 'start' | 'end'>('schedule');
   const [showInlineTimePicker, setShowInlineTimePicker] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
   
@@ -154,7 +206,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
   const viewingRecord = records.find(r => r.id === viewingRecordId);
 
   const filteredStudents = students.filter(s => 
-    s.name.includes(search)
+    s.name.includes(search) && (s.courseType === courseTypeTab || (!s.courseType && courseTypeTab === 'physical'))
   );
 
   useEffect(() => {
@@ -194,9 +246,23 @@ export default function Students({ students, records, purchaseRecords = [], isAd
       return;
     }
     
-    onAddStudent(newStudent);
+    const studentData = { ...newStudent };
+    if (studentData.courseType === 'online') {
+      studentData.totalClasses = 0;
+      studentData.remainingClasses = 0;
+    }
+    
+    onAddStudent(studentData);
     setShowAddModal(false);
-    setNewStudent({ name: '', remainingClasses: 10, totalClasses: 10 });
+    setNewStudent({ 
+      name: '', 
+      remainingClasses: 10, 
+      totalClasses: 10,
+      courseType: 'physical',
+      onlineDuration: 'quarter',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: ''
+    });
   };
 
   const handleSchedule = (e: React.FormEvent) => {
@@ -268,7 +334,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
           </button>
         </div>
         
-        <div className="relative">
+        <div className="relative mb-4">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
           <input 
             type="text"
@@ -277,6 +343,25 @@ export default function Students({ students, records, purchaseRecords = [], isAd
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-white/80 border border-slate-200/60 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all outline-none shadow-sm"
           />
+        </div>
+
+        <div className="flex bg-slate-100 p-1 rounded-xl mb-2">
+          <button
+            onClick={() => setCourseTypeTab('physical')}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+              courseTypeTab === 'physical' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500'
+            }`}
+          >
+            實體
+          </button>
+          <button
+            onClick={() => setCourseTypeTab('online')}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+              courseTypeTab === 'online' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500'
+            }`}
+          >
+            線上
+          </button>
         </div>
       </div>
 
@@ -297,13 +382,25 @@ export default function Students({ students, records, purchaseRecords = [], isAd
               <div>
                 <div className="flex items-center space-x-2">
                   <h3 className="font-semibold text-slate-900">{student.name}</h3>
+                  {student.courseType === 'online' && (
+                    <span className="px-1.5 py-0.5 bg-cyan-50 text-cyan-600 text-[10px] font-bold rounded border border-cyan-100">線上</span>
+                  )}
                 </div>
               </div>
             </div>
             <div className="relative z-10 flex flex-col items-end space-y-2">
               <div className="text-right">
-                <div className="text-xl font-bold text-cyan-600">{student.remainingClasses || 0}</div>
-                <div className="text-[10px] text-slate-400">剩餘堂數</div>
+                {student.courseType === 'online' ? (
+                  <>
+                    <div className="text-sm font-bold text-cyan-600">{student.endDate?.replace(/-/g, '/')}</div>
+                    <div className="text-[10px] text-slate-400">結束日期</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xl font-bold text-cyan-600">{student.remainingClasses || 0}</div>
+                    <div className="text-[10px] text-slate-400">剩餘堂數</div>
+                  </>
+                )}
               </div>
               <div className="flex space-x-2">
                 <button 
@@ -359,7 +456,14 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                   </div>
                   <div>
                     <h2 className="text-lg sm:text-xl font-bold text-slate-900">{viewingStudent.name}</h2>
-                    <p className="text-xs sm:text-sm text-slate-500">剩餘 {viewingStudent.remainingClasses || 0} 堂課</p>
+                    <div className="flex items-center space-x-2">
+                      <p className="text-xs sm:text-sm text-slate-500">
+                        {viewingStudent.courseType === 'online' ? '線上課程' : `剩餘 ${viewingStudent.remainingClasses || 0} 堂課`}
+                      </p>
+                      {viewingStudent.courseType === 'online' && viewingStudent.endDate && (
+                        <span className="text-[10px] text-slate-400">至 {viewingStudent.endDate.replace(/-/g, '/')}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-1 sm:space-x-2">
@@ -622,36 +726,119 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                   )}
                 </div>
               </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-slate-700">購買堂數</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[12, 24, 36].map((classes) => (
-                      <button
-                        key={classes}
-                        type="button"
-                        onClick={() => setNewStudent({...newStudent, totalClasses: classes, remainingClasses: classes})}
-                        className={`py-3 rounded-xl font-bold text-sm transition-all ${
-                          newStudent.totalClasses === classes
-                            ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {classes} 堂
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">剩餘堂數 (可手動調整)</label>
-                  <input 
-                    type="number" 
-                    value={newStudent.remainingClasses}
-                    onChange={e => setNewStudent({...newStudent, remainingClasses: parseInt(e.target.value) || 0})}
-                    className="w-full bg-white/80 border border-slate-200/60 rounded-xl px-4 py-3 text-slate-900 focus:bg-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-sm"
-                  />
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-slate-700">購買類型</label>
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setNewStudent({...newStudent, courseType: 'physical'})}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                      newStudent.courseType === 'physical' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500'
+                    }`}
+                  >
+                    實體
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewStudent({...newStudent, courseType: 'online'})}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                      newStudent.courseType === 'online' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500'
+                    }`}
+                  >
+                    線上
+                  </button>
                 </div>
               </div>
+
+              {newStudent.courseType === 'physical' ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-slate-700">購買堂數</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[12, 24, 36].map((classes) => (
+                        <button
+                          key={classes}
+                          type="button"
+                          onClick={() => setNewStudent({...newStudent, totalClasses: classes, remainingClasses: classes})}
+                          className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                            newStudent.totalClasses === classes
+                              ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {classes} 堂
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">剩餘堂數 (可手動調整)</label>
+                    <input 
+                      type="number" 
+                      value={newStudent.remainingClasses}
+                      onChange={e => setNewStudent({...newStudent, remainingClasses: parseInt(e.target.value) || 0})}
+                      className="w-full bg-white/80 border border-slate-200/60 rounded-xl px-4 py-3 text-slate-900 focus:bg-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-sm"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-slate-700">課程時間</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { id: 'quarter', label: '一季' },
+                        { id: 'half', label: '半年' },
+                        { id: 'year', label: '一年' }
+                      ].map((dur) => (
+                        <button
+                          key={dur.id}
+                          type="button"
+                          onClick={() => setNewStudent({...newStudent, onlineDuration: dur.id as any})}
+                          className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                            newStudent.onlineDuration === dur.id
+                              ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {dur.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">開始時間</label>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setDatePickerTarget('start');
+                          setShowInlineDatePicker(true);
+                        }}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
+                      >
+                        <span className="font-medium text-slate-700">{newStudent.startDate.replace(/-/g, '/')}</span>
+                        <span className="text-cyan-600">📅</span>
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">結束時間</label>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setDatePickerTarget('end');
+                          setShowInlineDatePicker(true);
+                        }}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
+                      >
+                        <span className="font-medium text-slate-700">{newStudent.endDate.replace(/-/g, '/')}</span>
+                        <span className="text-cyan-600">📅</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="flex space-x-3 mt-6">
                 <button 
@@ -698,7 +885,10 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                     <label className="block text-sm font-medium text-slate-700 mb-1">日期</label>
                     <button 
                       type="button"
-                      onClick={() => setShowInlineDatePicker(true)}
+                      onClick={() => {
+                        setDatePickerTarget('schedule');
+                        setShowInlineDatePicker(true);
+                      }}
                       className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
                     >
                       <span className="font-medium text-slate-700">{scheduleData.date.replace(/-/g, '/')}</span>
@@ -728,47 +918,60 @@ export default function Students({ students, records, purchaseRecords = [], isAd
             </div>
 
           </motion.div>
-
-          {/* Pickers Overlays */}
-          <AnimatePresence>
-            {showInlineDatePicker && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[999] flex items-center justify-center bg-transparent backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
-                onClick={() => setShowInlineDatePicker(false)}
-              >
-                <div onClick={(e) => e.stopPropagation()}>
-                  <CustomDatePicker 
-                    value={scheduleData.date} 
-                    onChange={(date) => setScheduleData({...scheduleData, date})} 
-                    onClose={() => setShowInlineDatePicker(false)} 
-                  />
-                </div>
-              </motion.div>
-            )}
-            {showInlineTimePicker && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[999] flex items-center justify-center bg-transparent backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
-                onClick={() => setShowInlineTimePicker(false)}
-              >
-                <div onClick={(e) => e.stopPropagation()}>
-                  <CustomTimePicker 
-                    value={scheduleData.time} 
-                    date={scheduleData.date}
-                    onChange={(time) => setScheduleData({...scheduleData, time})} 
-                    onClose={() => setShowInlineTimePicker(false)} 
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       )}
+
+      {/* Pickers Overlays */}
+      <AnimatePresence>
+        {showInlineDatePicker && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-transparent backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+            onClick={() => setShowInlineDatePicker(false)}
+          >
+            <div onClick={(e) => e.stopPropagation()}>
+              <CustomDatePicker 
+                value={
+                  datePickerTarget === 'start' ? newStudent.startDate : 
+                  datePickerTarget === 'end' ? newStudent.endDate : 
+                  scheduleData.date
+                } 
+                allowPast={showAddModal}
+                onChange={(date) => {
+                  if (datePickerTarget === 'start') {
+                    setNewStudent({...newStudent, startDate: date});
+                  } else if (datePickerTarget === 'end') {
+                    setNewStudent({...newStudent, endDate: date});
+                  } else {
+                    setScheduleData({...scheduleData, date});
+                  }
+                }} 
+                onClose={() => setShowInlineDatePicker(false)} 
+              />
+            </div>
+          </motion.div>
+        )}
+        {showInlineTimePicker && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[999] flex items-center justify-center bg-transparent backdrop-blur-sm p-4 pb-24 sm:p-6 sm:pb-24"
+            onClick={() => setShowInlineTimePicker(false)}
+          >
+            <div onClick={(e) => e.stopPropagation()}>
+              <CustomTimePicker 
+                value={scheduleData.time} 
+                date={scheduleData.date}
+                onChange={(time) => setScheduleData({...scheduleData, time})} 
+                onClose={() => setShowInlineTimePicker(false)} 
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Renew Classes Modal */}
       {renewingStudent && (

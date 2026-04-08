@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ClassRecord } from '../types';
 import CustomDatePicker from './CustomDatePicker';
 import CustomTimePicker from './CustomTimePicker';
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass } from '../utils/recordUtils';
 
 interface ViewRecordModalProps {
   record: ClassRecord;
@@ -38,16 +39,23 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
     const [h, m] = currentTime.split(':').map(Number);
     
     if (h < currentHour || (h === currentHour && m <= currentMinute)) {
-      let nextMinute = Math.ceil((currentMinute + 1) / 5) * 5;
-      let nextHour = currentHour;
+      const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
+      let nh = defaultTimeDate.getHours();
+      let nm = defaultTimeDate.getMinutes();
       
-      if (nextMinute >= 60) {
-        nextMinute = 0;
-        nextHour += 1;
+      if (nm > 0 && nm <= 30) {
+        nm = 30;
+      } else if (nm > 30) {
+        nm = 0;
+        nh += 1;
+      } else {
+        nm = 0;
       }
       
-      if (nextHour >= 24) return '23:55';
-      return `${nextHour.toString().padStart(2, '0')}:${nextMinute.toString().padStart(2, '0')}`;
+      if (nh < 9) { nh = 9; nm = 0; }
+      else if (nh >= 21) { nh = 21; nm = 0; }
+      
+      return `${nh.toString().padStart(2, '0')}:${nm.toString().padStart(2, '0')}`;
     }
     
     return currentTime;
@@ -122,7 +130,12 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
                       {record?.studentName?.charAt(0)}
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-base font-bold text-slate-900">{record?.studentName}</h3>
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-base font-bold text-slate-900">{record?.studentName}</h3>
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${getStatusColorClass(getRecordDisplayStatus(record))}`}>
+                          {getStatusLabel(getRecordDisplayStatus(record))}
+                        </span>
+                      </div>
                       <div className="flex flex-col text-sm text-slate-600 space-y-2 mt-3">
                         <span className="flex items-center">
                           <span className="mr-2 opacity-70 text-lg">📅</span> 

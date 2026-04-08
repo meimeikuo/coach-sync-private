@@ -4,6 +4,10 @@ export interface Student {
   remainingClasses: number;
   totalClasses: number;
   joinDate: string;
+  courseType: 'online' | 'physical';
+  onlineDuration?: 'quarter' | 'half' | 'year';
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface UserProfile {

@@ -21,16 +21,29 @@ export default function QuickBookingModal({ students, onClose, onBook }: QuickBo
   
   // Default time: now + 1 hour (local)
   const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
-  // Round up to nearest 5 minutes
-  const minutes = defaultTimeDate.getMinutes();
-  const roundedMinutes = Math.ceil(minutes / 5) * 5;
-  if (roundedMinutes >= 60) {
-    defaultTimeDate.setHours(defaultTimeDate.getHours() + 1);
-    defaultTimeDate.setMinutes(0);
+  let h = defaultTimeDate.getHours();
+  let m = defaultTimeDate.getMinutes();
+  
+  // Round to nearest 30 mins (00 or 30)
+  if (m > 0 && m <= 30) {
+    m = 30;
+  } else if (m > 30) {
+    m = 0;
+    h += 1;
   } else {
-    defaultTimeDate.setMinutes(roundedMinutes);
+    m = 0;
   }
-  const defaultTime = `${defaultTimeDate.getHours().toString().padStart(2, '0')}:${defaultTimeDate.getMinutes().toString().padStart(2, '0')}`;
+  
+  // Clamp to 09:00 - 21:00
+  if (h < 9) {
+    h = 9;
+    m = 0;
+  } else if (h >= 21) {
+    h = 21;
+    m = 0;
+  }
+  
+  const defaultTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 
   const [date, setDate] = useState(defaultDate);
   const [time, setTime] = useState(defaultTime);
@@ -48,15 +61,22 @@ export default function QuickBookingModal({ students, onClose, onBook }: QuickBo
       
       if (h < currentHour || (h === currentHour && m <= currentMinute)) {
         const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
-        const minutes = defaultTimeDate.getMinutes();
-        const roundedMinutes = Math.ceil(minutes / 5) * 5;
-        if (roundedMinutes >= 60) {
-          defaultTimeDate.setHours(defaultTimeDate.getHours() + 1);
-          defaultTimeDate.setMinutes(0);
+        let nh = defaultTimeDate.getHours();
+        let nm = defaultTimeDate.getMinutes();
+        
+        if (nm > 0 && nm <= 30) {
+          nm = 30;
+        } else if (nm > 30) {
+          nm = 0;
+          nh += 1;
         } else {
-          defaultTimeDate.setMinutes(roundedMinutes);
+          nm = 0;
         }
-        const newTime = `${defaultTimeDate.getHours().toString().padStart(2, '0')}:${defaultTimeDate.getMinutes().toString().padStart(2, '0')}`;
+        
+        if (nh < 9) { nh = 9; nm = 0; }
+        else if (nh >= 21) { nh = 21; nm = 0; }
+        
+        const newTime = `${nh.toString().padStart(2, '0')}:${nm.toString().padStart(2, '0')}`;
         setTime(newTime);
       }
     }

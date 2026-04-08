@@ -9,11 +9,11 @@ interface CustomTimePickerProps {
 }
 
 export default function CustomTimePicker({ value, date, onChange, onClose }: CustomTimePickerProps) {
-  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-  const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
+  const hours = Array.from({ length: 13 }, (_, i) => (i + 9).toString().padStart(2, '0'));
+  const minutes = ['00', '30'];
 
-  const [selectedHour, setSelectedHour] = useState((value || '10:00').split(':')[0]);
-  const [selectedMinute, setSelectedMinute] = useState((value || '10:00').split(':')[1]);
+  const [selectedHour, setSelectedHour] = useState((value || '09:00').split(':')[0]);
+  const [selectedMinute, setSelectedMinute] = useState((value || '09:00').split(':')[1]);
   
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
@@ -23,21 +23,41 @@ export default function CustomTimePicker({ value, date, onChange, onClose }: Cus
   
   const hourScrollRef = useRef<HTMLDivElement>(null);
   const minuteScrollRef = useRef<HTMLDivElement>(null);
+  const isInitialScroll = useRef(true);
 
   useEffect(() => {
-    if (hourScrollRef.current) {
-      const hourIndex = hours.indexOf(selectedHour);
-      if (hourIndex !== -1) {
-        hourScrollRef.current.scrollTo({ top: hourIndex * 48, behavior: 'auto' });
+    if (isInitialScroll.current) {
+      if (hourScrollRef.current) {
+        const hourIndex = hours.indexOf(selectedHour);
+        if (hourIndex !== -1) {
+          hourScrollRef.current.scrollTop = hourIndex * 48;
+        }
       }
-    }
-    if (minuteScrollRef.current) {
-      const minuteIndex = minutes.indexOf(selectedMinute);
-      if (minuteIndex !== -1) {
-        minuteScrollRef.current.scrollTo({ top: minuteIndex * 48, behavior: 'auto' });
+      if (minuteScrollRef.current) {
+        const minuteIndex = minutes.indexOf(selectedMinute);
+        if (minuteIndex !== -1) {
+          minuteScrollRef.current.scrollTop = minuteIndex * 48;
+        }
       }
+      isInitialScroll.current = false;
     }
-  }, []);
+  }, [selectedHour, selectedMinute]);
+
+  const handleHourScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    const index = Math.round(scrollTop / 48);
+    if (hours[index] && hours[index] !== selectedHour) {
+      setSelectedHour(hours[index]);
+    }
+  };
+
+  const handleMinuteScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    const index = Math.round(scrollTop / 48);
+    if (minutes[index] && minutes[index] !== selectedMinute) {
+      setSelectedMinute(minutes[index]);
+    }
+  };
 
   const handleConfirm = () => {
     onChange(`${selectedHour}:${selectedMinute}`);
@@ -71,6 +91,7 @@ export default function CustomTimePicker({ value, date, onChange, onClose }: Cus
 
             <div 
               ref={hourScrollRef}
+              onScroll={handleHourScroll}
               className="flex-1 overflow-y-auto relative z-10 scroll-smooth snap-y snap-mandatory no-scrollbar"
             >
               <div className="h-[72px]" />
@@ -101,6 +122,7 @@ export default function CustomTimePicker({ value, date, onChange, onClose }: Cus
 
             <div 
               ref={minuteScrollRef}
+              onScroll={handleMinuteScroll}
               className="flex-1 overflow-y-auto relative z-10 scroll-smooth snap-y snap-mandatory no-scrollbar"
             >
               <div className="h-[72px]" />
