@@ -176,8 +176,8 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
               return (
                 <div 
                   key={record.id} 
-                  onClick={() => record.status === 'scheduled' && setSigningRecord(record)}
-                  className={`bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 flex justify-between items-center relative overflow-hidden group ${record.status === 'scheduled' ? 'cursor-pointer active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] hover:border-cyan-200' : ''}`}
+                  onClick={() => record.status !== 'completed' ? setSigningRecord(record) : setViewingRecordId(record.id)}
+                  className="bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 flex justify-between items-center relative overflow-hidden group cursor-pointer active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] hover:border-cyan-200"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-500" />
                   <div className="relative z-10 flex items-center space-x-4">
@@ -233,7 +233,11 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
                       key={record.id}
                       onClick={() => {
                         setShowMonthModal(false);
-                        setViewingRecordId(record.id);
+                        if (record.status !== 'completed') {
+                          setSigningRecord(record);
+                        } else {
+                          setViewingRecordId(record.id);
+                        }
                       }}
                       className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center cursor-pointer active:scale-95 transition-all hover:border-cyan-200"
                     >

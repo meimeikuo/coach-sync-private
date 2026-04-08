@@ -112,7 +112,7 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               key={record.id} 
-              onClick={() => record.status === 'scheduled' ? setSigningRecord(record) : setViewingRecordId(record.id)}
+              onClick={() => record.status !== 'completed' ? setSigningRecord(record) : setViewingRecordId(record.id)}
               className="bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 cursor-pointer active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_25px_rgba(6,182,212,0.2)] hover:border-cyan-200 group relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-500" />

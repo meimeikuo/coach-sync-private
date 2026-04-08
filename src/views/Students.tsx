@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { Student, ClassRecord, PurchaseRecord } from '../types';
 import ViewRecordModal from '../components/ViewRecordModal';
+import SigningModal from '../components/SigningModal';
 import CustomTimePicker from '../components/CustomTimePicker';
 import CustomDatePicker from '../components/CustomDatePicker';
 
@@ -18,9 +19,10 @@ interface StudentsProps {
   onDeleteStudent: (studentId: string) => void;
   onUpdateRecord: (id: string, date: string, time: string) => void;
   onUpdateStudentName?: (id: string, newName: string) => void;
+  onSignRecord: (id: string, coachSig: string, studentSig: string) => void;
 }
 
-export default function Students({ students, records, purchaseRecords = [], isAddingStudent, onAddModalClose, onAddStudent, onScheduleClass, onRenewClasses, onDeleteStudent, onUpdateRecord, onUpdateStudentName }: StudentsProps) {
+export default function Students({ students, records, purchaseRecords = [], isAddingStudent, onAddModalClose, onAddStudent, onScheduleClass, onRenewClasses, onDeleteStudent, onUpdateRecord, onUpdateStudentName, onSignRecord }: StudentsProps) {
   const [search, setSearch] = useState('');
   const [courseTypeTab, setCourseTypeTab] = useState<'physical' | 'online'>('physical');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -34,6 +36,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
   const [schedulingStudent, setSchedulingStudent] = useState<Student | null>(null);
   const [renewingStudent, setRenewingStudent] = useState<Student | null>(null);
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
+  const [signingRecord, setSigningRecord] = useState<ClassRecord | null>(null);
   const [viewingRecordId, setViewingRecordId] = useState<string | null>(null);
   const [recordTab, setRecordTab] = useState<'scheduled' | 'completed' | 'purchases'>('scheduled');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -571,7 +574,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                   return filteredRecords.map((record) => (
                     <div 
                       key={record.id} 
-                      onClick={() => setViewingRecordId(record.id)}
+                      onClick={() => record.status !== 'completed' ? setSigningRecord(record) : setViewingRecordId(record.id)}
                       className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 cursor-pointer active:scale-95 transition-all hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:border-cyan-300 group relative overflow-hidden"
                     >
                       <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-300" />
@@ -1050,6 +1053,17 @@ export default function Students({ students, records, purchaseRecords = [], isAd
           record={viewingRecord}
           onClose={() => setViewingRecordId(null)}
           onUpdate={onUpdateRecord}
+        />
+      )}
+
+      {signingRecord && (
+        <SigningModal 
+          record={signingRecord} 
+          onClose={() => setSigningRecord(null)} 
+          onSign={(id, coachSig, studentSig) => {
+            onSignRecord(id, coachSig, studentSig);
+            setSigningRecord(null);
+          }} 
         />
       )}
     </div>

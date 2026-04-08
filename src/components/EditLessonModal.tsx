@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ClassRecord } from '../types';
 import ViewRecordModal from './ViewRecordModal';
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass } from '../utils/recordUtils';
 
 interface EditLessonModalProps {
   records: ClassRecord[];
@@ -12,7 +13,7 @@ interface EditLessonModalProps {
 export default function EditLessonModal({ records, onClose, onUpdate }: EditLessonModalProps) {
   const [viewingRecordId, setViewingRecordId] = useState<string | null>(null);
   
-  const scheduledRecords = records.filter(r => r.status === 'scheduled');
+  const editableRecords = records.filter(r => r.status !== 'completed');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4">
@@ -27,31 +28,36 @@ export default function EditLessonModal({ records, onClose, onUpdate }: EditLess
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-3">
-          {scheduledRecords.length === 0 ? (
-            <p className="text-center text-slate-400 py-10">目前無已預約課程</p>
+          {editableRecords.length === 0 ? (
+            <p className="text-center text-slate-400 py-10">目前無可編輯課程</p>
           ) : (
-            scheduledRecords.map(record => (
-              <div 
-                key={record.id}
-                onClick={() => setViewingRecordId(record.id)}
-                className="bg-slate-50 p-4 rounded-2xl border border-slate-100 cursor-pointer hover:border-cyan-200 transition-all"
-              >
-                <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
-                <p className="text-xs text-slate-500">{record.date} {record.time}</p>
-              </div>
-            ))
+            editableRecords.map(record => {
+              const displayStatus = getRecordDisplayStatus(record);
+              return (
+                <div 
+                  key={record.id}
+                  onClick={() => setViewingRecordId(record.id)}
+                  className="bg-slate-50 p-4 rounded-2xl border border-slate-100 cursor-pointer hover:border-cyan-200 transition-all flex justify-between items-center"
+                >
+                  <div>
+                    <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
+                    <p className="text-xs text-slate-500">{record.date} {record.time}</p>
+                  </div>
+                  <div className={`px-2 py-1 text-[10px] font-bold rounded-md border ${getStatusColorClass(displayStatus)}`}>
+                    {getStatusLabel(displayStatus)}
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
 
         {viewingRecordId && (
           <ViewRecordModal
-            record={scheduledRecords.find(r => r.id === viewingRecordId)!}
+            record={editableRecords.find(r => r.id === viewingRecordId)!}
             onClose={() => setViewingRecordId(null)}
             onUpdate={onUpdate}
             onCancelRecord={(id) => {
-              // Assuming onCancelRecord is needed or similar logic
-              // Need to check if onCancelRecord is available in props
-              // For now, adding a placeholder or assuming it exists
               console.log('Cancel record', id);
             }}
           />
