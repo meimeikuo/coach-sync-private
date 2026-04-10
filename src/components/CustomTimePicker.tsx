@@ -18,8 +18,10 @@ export default function CustomTimePicker({ value, date, onChange, onClose }: Cus
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
   const isToday = date === todayStr;
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
+  
+  // Calculate the minimum allowed time in minutes from midnight (allow up to 90 minutes in the past)
+  const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+  const minAllowedTotalMinutes = currentTotalMinutes - 90;
   
   const hourScrollRef = useRef<HTMLDivElement>(null);
   const minuteScrollRef = useRef<HTMLDivElement>(null);
@@ -97,7 +99,8 @@ export default function CustomTimePicker({ value, date, onChange, onClose }: Cus
               <div className="h-[72px]" />
               {hours.map(hour => {
                 const isSelected = selectedHour === hour;
-                const isPast = isToday && parseInt(hour) < currentHour;
+                // An hour is only disabled if its latest possible minute (30) is still before the minimum allowed time
+                const isPast = isToday && (parseInt(hour) * 60 + 30 < minAllowedTotalMinutes);
                 return (
                   <div
                     key={hour}
@@ -128,7 +131,8 @@ export default function CustomTimePicker({ value, date, onChange, onClose }: Cus
               <div className="h-[72px]" />
               {minutes.map(minute => {
                 const isSelected = selectedMinute === minute;
-                const isPast = isToday && parseInt(selectedHour) === currentHour && parseInt(minute) <= currentMinute;
+                const timeTotalMinutes = parseInt(selectedHour) * 60 + parseInt(minute);
+                const isPast = isToday && timeTotalMinutes < minAllowedTotalMinutes;
                 return (
                   <div
                     key={minute}

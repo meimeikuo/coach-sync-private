@@ -13,7 +13,11 @@ interface EditLessonModalProps {
 export default function EditLessonModal({ records, onClose, onUpdate }: EditLessonModalProps) {
   const [viewingRecordId, setViewingRecordId] = useState<string | null>(null);
   
-  const editableRecords = records.filter(r => r.status !== 'completed');
+  const editableRecords = records.filter(r => r.status !== 'completed').sort((a, b) => {
+    const dateA = new Date(`${a.date}T${a.time}`);
+    const dateB = new Date(`${b.date}T${b.time}`);
+    return dateA.getTime() - dateB.getTime();
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4">

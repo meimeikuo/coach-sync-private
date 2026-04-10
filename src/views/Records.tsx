@@ -19,11 +19,11 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
 
   const viewingRecord = records.find(r => r.id === viewingRecordId);
 
-  // Sort records by date and time descending
+  // Sort records by date and time ascending (closest time at the top)
   const sortedRecords = [...records].sort((a, b) => {
     const dateA = new Date(`${a.date}T${a.time}`);
     const dateB = new Date(`${b.date}T${b.time}`);
-    return dateB.getTime() - dateA.getTime();
+    return dateA.getTime() - dateB.getTime();
   });
 
   const filteredRecords = sortedRecords.filter(r => {

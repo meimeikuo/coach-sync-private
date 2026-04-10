@@ -19,17 +19,12 @@ export default function QuickBookingModal({ students, onClose, onBook }: QuickBo
   const now = new Date();
   const defaultDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
   
-  // Default time: now + 1 hour (local)
-  const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
-  let h = defaultTimeDate.getHours();
-  let m = defaultTimeDate.getMinutes();
+  // Default time: closest 30-min interval (round down)
+  let h = now.getHours();
+  let m = now.getMinutes();
   
-  // Round to nearest 30 mins (00 or 30)
-  if (m > 0 && m <= 30) {
+  if (m >= 30) {
     m = 30;
-  } else if (m > 30) {
-    m = 0;
-    h += 1;
   } else {
     m = 0;
   }
@@ -86,16 +81,6 @@ export default function QuickBookingModal({ students, onClose, onBook }: QuickBo
 
   const handleBook = () => {
     if (!selectedStudentId) return;
-
-    // Final check: selected time must be in the future
-    const [year, month, day] = date.split('-').map(Number);
-    const [hour, minute] = time.split(':').map(Number);
-    const selectedDateTime = new Date(year, month - 1, day, hour, minute);
-    
-    if (selectedDateTime < new Date()) {
-      alert('無法預約過去的時間，請重新選擇。');
-      return;
-    }
 
     onBook(selectedStudentId, date, time);
     onClose();

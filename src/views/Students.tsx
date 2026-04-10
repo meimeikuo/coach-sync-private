@@ -97,15 +97,12 @@ export default function Students({ students, records, purchaseRecords = [], isAd
   const [scheduleData, setScheduleData] = useState(() => {
     const now = new Date();
     const defaultDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-    const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
-    let h = defaultTimeDate.getHours();
-    let m = defaultTimeDate.getMinutes();
+    // Default time: closest 30-min interval (round down)
+    let h = now.getHours();
+    let m = now.getMinutes();
     
-    if (m > 0 && m <= 30) {
+    if (m >= 30) {
       m = 30;
-    } else if (m > 30) {
-      m = 0;
-      h += 1;
     } else {
       m = 0;
     }
@@ -126,20 +123,18 @@ export default function Students({ students, records, purchaseRecords = [], isAd
     const isToday = dateStr === todayStr;
     if (!isToday) return currentTime;
     
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const [h, m] = currentTime.split(':').map(Number);
+    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+    const minAllowedTotalMinutes = currentTotalMinutes - 90;
     
-    if (h < currentHour || (h === currentHour && m <= currentMinute)) {
-      const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
-      let nh = defaultTimeDate.getHours();
-      let nm = defaultTimeDate.getMinutes();
+    const [h, m] = currentTime.split(':').map(Number);
+    const selectedTotalMinutes = h * 60 + m;
+    
+    if (selectedTotalMinutes < minAllowedTotalMinutes) {
+      let nh = now.getHours();
+      let nm = now.getMinutes();
       
-      if (nm > 0 && nm <= 30) {
+      if (nm >= 30) {
         nm = 30;
-      } else if (nm > 30) {
-        nm = 0;
-        nh += 1;
       } else {
         nm = 0;
       }
@@ -157,15 +152,11 @@ export default function Students({ students, records, purchaseRecords = [], isAd
     if (schedulingStudent) {
       const now = new Date();
       const dateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
-      const defaultTimeDate = new Date(now.getTime() + 60 * 60 * 1000);
-      let h = defaultTimeDate.getHours();
-      let m = defaultTimeDate.getMinutes();
+      let h = now.getHours();
+      let m = now.getMinutes();
       
-      if (m > 0 && m <= 30) {
+      if (m >= 30) {
         m = 30;
-      } else if (m > 30) {
-        m = 0;
-        h += 1;
       } else {
         m = 0;
       }
@@ -294,16 +285,6 @@ export default function Students({ students, records, purchaseRecords = [], isAd
   const handleSchedule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!schedulingStudent) return;
-
-    // Final check: selected time must be in the future
-    const [year, month, day] = scheduleData.date.split('-').map(Number);
-    const [hour, minute] = scheduleData.time.split(':').map(Number);
-    const selectedDateTime = new Date(year, month - 1, day, hour, minute);
-    
-    if (selectedDateTime < new Date()) {
-      alert('無法預約過去的時間，請重新選擇。');
-      return;
-    }
 
     onScheduleClass({
       studentName: schedulingStudent.name,
