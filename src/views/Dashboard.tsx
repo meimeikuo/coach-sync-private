@@ -40,7 +40,7 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
   });
 
   const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`; // YYYY-MM
-  const monthRecords = records.filter(r => r.date.startsWith(currentMonth));
+  const monthRecords = records.filter(r => r.date.startsWith(currentMonth) && getRecordDisplayStatus(r) === 'completed');
 
   const handleSign = (id: string, coachSig: string, studentSig: string) => {
     onSignRecord(id, coachSig, studentSig);
@@ -77,7 +77,7 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
             <span className="text-lg">📈</span>
             <span className="font-medium text-sm">本月上課</span>
           </div>
-          <div className="relative z-10 text-3xl font-bold text-slate-900">{records.filter(r => r.status === 'completed' && r.date.startsWith(currentMonth)).length}</div>
+          <div className="relative z-10 text-3xl font-bold text-slate-900">{monthRecords.length}</div>
           <div className="relative z-10 text-[10px] text-blue-400 mt-1 flex items-center">
             點擊查看明細 ➡️
           </div>
@@ -176,12 +176,12 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
               return (
                 <div 
                   key={record.id} 
-                  onClick={() => record.status !== 'completed' ? setSigningRecord(record) : setViewingRecordId(record.id)}
+                  onClick={() => displayStatus !== 'completed' ? setSigningRecord(record) : setViewingRecordId(record.id)}
                   className="bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 flex justify-between items-center relative overflow-hidden group cursor-pointer active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] hover:border-cyan-200"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-500" />
                   <div className="relative z-10 flex items-center space-x-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border transition-colors ${record.status === 'completed' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' : 'bg-slate-50 text-slate-500 border-slate-200 group-hover:bg-cyan-50 group-hover:text-cyan-600 group-hover:border-cyan-100'}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border transition-colors ${displayStatus === 'completed' ? 'bg-cyan-50 text-cyan-600 border-cyan-100' : 'bg-slate-50 text-slate-500 border-slate-200 group-hover:bg-cyan-50 group-hover:text-cyan-600 group-hover:border-cyan-100'}`}>
                       {record.studentName.charAt(0)}
                     </div>
                     <div>
@@ -233,7 +233,7 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
                       key={record.id}
                       onClick={() => {
                         setShowMonthModal(false);
-                        if (record.status !== 'completed') {
+                        if (displayStatus !== 'completed') {
                           setSigningRecord(record);
                         } else {
                           setViewingRecordId(record.id);

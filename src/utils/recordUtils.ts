@@ -3,7 +3,7 @@ import { ClassRecord } from '../types';
 export type RecordDisplayStatus = 'scheduled' | 'completed' | 'late_pending';
 
 export const getRecordDisplayStatus = (record: ClassRecord): RecordDisplayStatus => {
-  if (record.status === 'completed') return 'completed';
+  if (record.status === 'completed' || (record.coachSignature && record.studentSignature)) return 'completed';
   
   const now = new Date();
   const [year, month, day] = record.date.split('-').map(Number);

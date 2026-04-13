@@ -6,6 +6,7 @@ import ViewRecordModal from '../components/ViewRecordModal';
 import SigningModal from '../components/SigningModal';
 import CustomTimePicker from '../components/CustomTimePicker';
 import CustomDatePicker from '../components/CustomDatePicker';
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass } from '../utils/recordUtils';
 
 interface StudentsProps {
   students: Student[];
@@ -598,36 +599,39 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                     );
                   }
                   
-                  return filteredRecords.map((record) => (
-                    <div 
-                      key={record.id} 
-                      onClick={() => record.status !== 'completed' ? setSigningRecord(record) : setViewingRecordId(record.id)}
-                      className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 cursor-pointer active:scale-95 transition-all hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:border-cyan-300 group relative overflow-hidden"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-300" />
-                      <div className="relative z-10 flex justify-between items-start mb-2">
-                        <div>
-                          <div className="text-sm font-bold text-slate-900 group-hover:text-cyan-700 transition-colors">{record.time}</div>
-                          <div className="text-xs text-slate-500">{record.date}</div>
-                        </div>
-                        <div className="flex flex-col items-end space-y-2">
-                          <div className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${record.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                            {record.status === 'completed' ? '已完成' : '待簽名'}
+                  return filteredRecords.map((record) => {
+                    const displayStatus = getRecordDisplayStatus(record);
+                    return (
+                      <div 
+                        key={record.id} 
+                        onClick={() => displayStatus !== 'completed' ? setSigningRecord(record) : setViewingRecordId(record.id)}
+                        className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 cursor-pointer active:scale-95 transition-all hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:border-cyan-300 group relative overflow-hidden"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-300" />
+                        <div className="relative z-10 flex justify-between items-start mb-2">
+                          <div>
+                            <div className="text-sm font-bold text-slate-900 group-hover:text-cyan-700 transition-colors">{record.time}</div>
+                            <div className="text-xs text-slate-500">{record.date}</div>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            <div className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${getStatusColorClass(displayStatus)}`}>
+                              {getStatusLabel(displayStatus)}
+                            </div>
                           </div>
                         </div>
+                        
+                        {displayStatus === 'completed' && record.signedAt && (
+                          <div className="relative z-10 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-400 flex justify-between items-center">
+                            <span>簽名時間：</span>
+                            <span className="font-medium text-slate-600">{new Date(record.signedAt).toLocaleString('zh-TW', {
+                              year: 'numeric', month: '2-digit', day: '2-digit',
+                              hour: '2-digit', minute: '2-digit'
+                            })}</span>
+                          </div>
+                        )}
                       </div>
-                      
-                      {record.status === 'completed' && record.signedAt && (
-                        <div className="relative z-10 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-400 flex justify-between items-center">
-                          <span>簽名時間：</span>
-                          <span className="font-medium text-slate-600">{new Date(record.signedAt).toLocaleString('zh-TW', {
-                            year: 'numeric', month: '2-digit', day: '2-digit',
-                            hour: '2-digit', minute: '2-digit'
-                          })}</span>
-                        </div>
-                      )}
-                    </div>
-                  ));
+                    );
+                  });
                 })()}
               </div>
             </div>

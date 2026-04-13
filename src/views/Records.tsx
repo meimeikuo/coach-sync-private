@@ -106,43 +106,46 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
             <p>{getEmptyMessage()}</p>
           </div>
         ) : (
-          filteredRecords.map((record, index) => (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              key={record.id} 
-              onClick={() => record.status !== 'completed' ? setSigningRecord(record) : setViewingRecordId(record.id)}
-              className="bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 cursor-pointer active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_25px_rgba(6,182,212,0.2)] hover:border-cyan-200 group relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-500" />
-              <div className="relative z-10 flex justify-between items-start mb-3">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border transition-all ${record.status === 'scheduled' ? 'bg-slate-50 text-slate-500 border-slate-200 group-hover:bg-cyan-50 group-hover:text-cyan-600 group-hover:border-cyan-100' : 'bg-cyan-50 text-cyan-600 border-cyan-100 group-hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'}`}>
-                    {record.studentName.charAt(0)}
+          filteredRecords.map((record, index) => {
+            const displayStatus = getRecordDisplayStatus(record);
+            return (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                key={record.id} 
+                onClick={() => displayStatus !== 'completed' ? setSigningRecord(record) : setViewingRecordId(record.id)}
+                className="bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 cursor-pointer active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_25px_rgba(6,182,212,0.2)] hover:border-cyan-200 group relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-500" />
+                <div className="relative z-10 flex justify-between items-start mb-3">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border transition-all ${displayStatus !== 'completed' ? 'bg-slate-50 text-slate-500 border-slate-200 group-hover:bg-cyan-50 group-hover:text-cyan-600 group-hover:border-cyan-100' : 'bg-cyan-50 text-cyan-600 border-cyan-100 group-hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'}`}>
+                      {record.studentName.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
+                  <div className="text-right flex flex-col items-end space-y-2">
+                    <div>
+                      <div className="text-sm font-medium text-slate-900">{record.date}</div>
+                      <div className="text-xs text-slate-500">{record.time}</div>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right flex flex-col items-end space-y-2">
-                  <div>
-                    <div className="text-sm font-medium text-slate-900">{record.date}</div>
-                    <div className="text-xs text-slate-500">{record.time}</div>
-                  </div>
+                
+                <div className="relative z-10 flex items-center justify-between pt-3 border-t border-slate-100">
+                  <span className="text-xs text-slate-400">
+                    {displayStatus !== 'completed' ? '點擊進行簽課' : `簽名時間：${new Date(record.signedAt || record.createdAt).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+                  </span>
+                  <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${getStatusColorClass(displayStatus)}`}>
+                    {getStatusLabel(displayStatus)}
+                  </span>
                 </div>
-              </div>
-              
-              <div className="relative z-10 flex items-center justify-between pt-3 border-t border-slate-100">
-                <span className="text-xs text-slate-400">
-                  {record.status === 'scheduled' ? '點擊進行簽課' : `簽名時間：${new Date(record.signedAt || record.createdAt).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
-                </span>
-                <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${getStatusColorClass(getRecordDisplayStatus(record))}`}>
-                  {getStatusLabel(getRecordDisplayStatus(record))}
-                </span>
-              </div>
-            </motion.div>
-          ))
+              </motion.div>
+            );
+          })
         )}
       </div>
 

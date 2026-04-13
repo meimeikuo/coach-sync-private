@@ -73,7 +73,7 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
     }
   };
 
-  const isScheduled = record.status !== 'completed';
+  const isScheduled = getRecordDisplayStatus(record) !== 'completed';
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 pb-24 sm:p-6 sm:pb-24">
