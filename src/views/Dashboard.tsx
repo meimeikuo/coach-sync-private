@@ -6,7 +6,7 @@ import ViewRecordModal from '../components/ViewRecordModal';
 import QuickBookingModal from '../components/QuickBookingModal';
 import EditLessonModal from '../components/EditLessonModal';
 
-import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass } from '../utils/recordUtils';
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass, formatDateWithWeekday } from '../utils/recordUtils';
 
 interface DashboardProps {
   students: Student[];
@@ -186,7 +186,7 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
                     </div>
                     <div>
                       <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
-                      <p className="text-xs text-slate-500">{record.date} {record.time}</p>
+                      <p className="text-xs text-slate-500">{formatDateWithWeekday(record.date)} {record.time}</p>
                     </div>
                   </div>
                   <div className="flex flex-col items-end space-y-2">
@@ -247,7 +247,7 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
                         </div>
                         <div>
                           <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
-                          <p className="text-[10px] text-slate-500">{record.date} {record.time}</p>
+                          <p className="text-[10px] text-slate-500">{formatDateWithWeekday(record.date)} {record.time}</p>
                         </div>
                       </div>
                       <div className="flex flex-col items-end space-y-2">

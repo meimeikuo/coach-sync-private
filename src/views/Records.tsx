@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { ClassRecord } from '../types';
 import SigningModal from '../components/SigningModal';
 import ViewRecordModal from '../components/ViewRecordModal';
-import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass } from '../utils/recordUtils';
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass, formatDateWithWeekday, formatDateTimeWithWeekday } from '../utils/recordUtils';
 
 interface RecordsProps {
   records: ClassRecord[];
@@ -129,7 +129,7 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
                   </div>
                   <div className="text-right flex flex-col items-end space-y-2">
                     <div>
-                      <div className="text-sm font-medium text-slate-900">{record.date}</div>
+                      <div className="text-sm font-medium text-slate-900">{formatDateWithWeekday(record.date)}</div>
                       <div className="text-xs text-slate-500">{record.time}</div>
                     </div>
                   </div>
@@ -137,7 +137,7 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
                 
                 <div className="relative z-10 flex items-center justify-between pt-3 border-t border-slate-100">
                   <span className="text-xs text-slate-400">
-                    {displayStatus !== 'completed' ? '點擊進行簽課' : `簽名時間：${new Date(record.signedAt || record.createdAt).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+                    {displayStatus !== 'completed' ? '點擊進行簽課' : `簽名時間：${formatDateTimeWithWeekday(record.signedAt || record.createdAt)}`}
                   </span>
                   <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${getStatusColorClass(displayStatus)}`}>
                     {getStatusLabel(displayStatus)}

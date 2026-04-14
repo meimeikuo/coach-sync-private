@@ -6,7 +6,7 @@ import ViewRecordModal from '../components/ViewRecordModal';
 import SigningModal from '../components/SigningModal';
 import CustomTimePicker from '../components/CustomTimePicker';
 import CustomDatePicker from '../components/CustomDatePicker';
-import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass } from '../utils/recordUtils';
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass, formatDateWithWeekday, formatDateTimeWithWeekday } from '../utils/recordUtils';
 
 interface StudentsProps {
   students: Student[];
@@ -611,7 +611,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                         <div className="relative z-10 flex justify-between items-start mb-2">
                           <div>
                             <div className="text-sm font-bold text-slate-900 group-hover:text-cyan-700 transition-colors">{record.time}</div>
-                            <div className="text-xs text-slate-500">{record.date}</div>
+                            <div className="text-xs text-slate-500">{formatDateWithWeekday(record.date)}</div>
                           </div>
                           <div className="flex flex-col items-end space-y-2">
                             <div className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${getStatusColorClass(displayStatus)}`}>
@@ -623,10 +623,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                         {displayStatus === 'completed' && record.signedAt && (
                           <div className="relative z-10 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-400 flex justify-between items-center">
                             <span>簽名時間：</span>
-                            <span className="font-medium text-slate-600">{new Date(record.signedAt).toLocaleString('zh-TW', {
-                              year: 'numeric', month: '2-digit', day: '2-digit',
-                              hour: '2-digit', minute: '2-digit'
-                            })}</span>
+                            <span className="font-medium text-slate-600">{formatDateTimeWithWeekday(record.signedAt)}</span>
                           </div>
                         )}
                       </div>

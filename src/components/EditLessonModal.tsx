@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ClassRecord } from '../types';
 import ViewRecordModal from './ViewRecordModal';
-import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass } from '../utils/recordUtils';
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass, formatDateWithWeekday } from '../utils/recordUtils';
 
 interface EditLessonModalProps {
   records: ClassRecord[];
@@ -45,7 +45,7 @@ export default function EditLessonModal({ records, onClose, onUpdate }: EditLess
                 >
                   <div>
                     <h3 className="font-semibold text-slate-900">{record.studentName}</h3>
-                    <p className="text-xs text-slate-500">{record.date} {record.time}</p>
+                    <p className="text-xs text-slate-500">{formatDateWithWeekday(record.date)} {record.time}</p>
                   </div>
                   <div className={`px-2 py-1 text-[10px] font-bold rounded-md border ${getStatusColorClass(displayStatus)}`}>
                     {getStatusLabel(displayStatus)}

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ClassRecord } from '../types';
 import CustomDatePicker from './CustomDatePicker';
 import CustomTimePicker from './CustomTimePicker';
-import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass } from '../utils/recordUtils';
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass, formatDateWithWeekday, formatDateTimeWithWeekday } from '../utils/recordUtils';
 
 interface ViewRecordModalProps {
   record: ClassRecord;
@@ -100,7 +100,7 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
                   className="bg-white p-4 rounded-xl border border-slate-200 flex items-center justify-between cursor-pointer hover:border-cyan-500 transition-colors"
                 >
                   <span className="text-sm text-slate-500">日期</span>
-                  <span className="font-bold text-slate-900">{editDate}</span>
+                  <span className="font-bold text-slate-900">{formatDateWithWeekday(editDate)}</span>
                 </div>
                 <div 
                   onClick={() => setShowTimePicker(true)}
@@ -127,7 +127,7 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
                       <div className="flex flex-col text-sm text-slate-600 space-y-2 mt-3">
                         <span className="flex items-center">
                           <span className="mr-2 opacity-70 text-lg">📅</span> 
-                          <span className="font-bold text-slate-800 text-lg">{record?.date}</span>
+                          <span className="font-bold text-slate-800 text-lg">{formatDateWithWeekday(record?.date)}</span>
                         </span>
                         <span className="flex items-center">
                           <span className="mr-2 opacity-70 text-lg">🕒</span> 
@@ -174,7 +174,7 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
                 </div>
                 {record?.signedAt && (
                   <div className="text-[10px] text-slate-400 text-right px-1">
-                    簽名時間: {new Date(record.signedAt).toLocaleString('zh-TW')}
+                    簽名時間: {formatDateTimeWithWeekday(record.signedAt)}
                   </div>
                 )}
               </div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { ClassRecord } from '../types';
 import SignaturePad from './SignaturePad';
+import { formatDateWithWeekday } from '../utils/recordUtils';
 
 interface SigningModalProps {
   record: ClassRecord;
@@ -38,7 +39,7 @@ export default function SigningModal({ record, onClose, onSign }: SigningModalPr
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-xl font-bold text-slate-900">確認課程簽到</h2>
-            <p className="text-sm text-slate-500 mt-1">{record.date} {record.time}</p>
+            <p className="text-sm text-slate-500 mt-1">{formatDateWithWeekday(record.date)} {record.time}</p>
           </div>
           <button onClick={onClose} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors">
             ❌
