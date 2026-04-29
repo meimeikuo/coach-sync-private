@@ -19,14 +19,7 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
 
   const viewingRecord = records.find(r => r.id === viewingRecordId);
 
-  // Sort records by date and time ascending (closest time at the top)
-  const sortedRecords = [...records].sort((a, b) => {
-    const dateA = new Date(`${a.date}T${a.time}`);
-    const dateB = new Date(`${b.date}T${b.time}`);
-    return dateA.getTime() - dateB.getTime();
-  });
-
-  const filteredRecords = sortedRecords.filter(r => {
+  const filteredRecords = [...records].filter(r => {
     const displayStatus = getRecordDisplayStatus(r);
     const matchesSearch = r.studentName.includes(search);
     
@@ -34,6 +27,10 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
     if (activeTab === 'unsigned') return displayStatus === 'late_pending' && matchesSearch;
     if (activeTab === 'completed') return displayStatus === 'completed' && matchesSearch;
     return false;
+  }).sort((a, b) => {
+    const timeA = new Date(`${a.date}T${a.time}`).getTime();
+    const timeB = new Date(`${b.date}T${b.time}`).getTime();
+    return activeTab === 'completed' ? timeB - timeA : timeA - timeB;
   });
 
   const handleSign = (id: string, coachSig: string, studentSig: string) => {

@@ -587,8 +587,12 @@ export default function Students({ students, records, purchaseRecords = [], isAd
 
                   const studentRecords = getStudentRecords(viewingStudent.name);
                   const filteredRecords = studentRecords.filter(r => 
-                    recordTab === 'completed' ? r.status === 'completed' : r.status !== 'completed'
-                  );
+                    recordTab === 'completed' ? getRecordDisplayStatus(r) === 'completed' : getRecordDisplayStatus(r) !== 'completed'
+                  ).sort((a, b) => {
+                    const timeA = new Date(`${a.date}T${a.time}`).getTime();
+                    const timeB = new Date(`${b.date}T${b.time}`).getTime();
+                    return recordTab === 'completed' ? timeB - timeA : timeA - timeB;
+                  });
                   
                   if (filteredRecords.length === 0) {
                     return (

@@ -55,7 +55,7 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
     >
       <header className="pt-4 pb-2">
         <h1 className="text-2xl font-bold text-slate-900">Jason Huang 黃文新 💪🏻</h1>
-        <p className="text-sm text-slate-500 mt-1">目前有 {dashboardRecords.filter(r => r.status === 'scheduled').length} 堂待簽課程</p>
+        <p className="text-sm text-slate-500 mt-1">目前有 {dashboardRecords.filter(r => getRecordDisplayStatus(r) !== 'completed').length} 堂待簽課程</p>
       </header>
 
       {/* Stats Grid */}
