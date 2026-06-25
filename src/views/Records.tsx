@@ -13,7 +13,7 @@ interface RecordsProps {
 
 export default function Records({ records, onSignRecord, onUpdateRecord }: RecordsProps) {
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'scheduled' | 'unsigned' | 'completed'>('scheduled');
+  const [activeTab, setActiveTab] = useState<'scheduled' | 'unsigned' | 'completed' | 'stats'>('scheduled');
   const [signingRecord, setSigningRecord] = useState<ClassRecord | null>(null);
   const [viewingRecordId, setViewingRecordId] = useState<string | null>(null);
 
@@ -38,6 +38,50 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
     setSigningRecord(null);
   };
 
+  const renderStats = () => {
+    const startYear = 2026;
+    const startMonth = 4;
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+
+    const months: string[] = [];
+    let y = startYear;
+    let m = startMonth;
+    while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+      months.unshift(`${y}-${m.toString().padStart(2, '0')}`);
+      m++;
+      if (m > 12) {
+        m = 1;
+        y++;
+      }
+    }
+
+    return (
+      <div className="space-y-3">
+        {months.map(monthStr => {
+          const count = records.filter(r => r.date.startsWith(monthStr) && getRecordDisplayStatus(r) === 'completed').length;
+          const [year, month] = monthStr.split('-');
+          return (
+            <motion.div 
+              key={monthStr}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center"
+            >
+              <div className="font-semibold text-slate-800 text-lg">
+                {year}年{month}月
+              </div>
+              <div className="text-cyan-600 font-bold text-xl">
+                {count} 堂
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const getEmptyMessage = () => {
     switch (activeTab) {
       case 'scheduled': return '目前無待簽課紀錄';
@@ -54,42 +98,55 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
           <h1 className="text-2xl font-bold text-slate-900">課程紀錄</h1>
         </div>
         
-        <div className="relative mb-4">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
-          <input 
-            type="text"
-            placeholder="搜尋學員..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white/80 border border-slate-200/60 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all outline-none shadow-sm"
-          />
-        </div>
+        {activeTab !== 'stats' && (
+          <div className="relative mb-4">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+            <input 
+              type="text"
+              placeholder="搜尋學員..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-white/80 border border-slate-200/60 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all outline-none shadow-sm"
+            />
+          </div>
+        )}
 
-        <div className="flex space-x-4 border-b border-slate-200/50">
+        <div className="flex justify-between border-b border-slate-200/50">
+          <div className="flex space-x-4">
+            <button 
+              onClick={() => setActiveTab('scheduled')}
+              className={`pb-3 text-sm font-bold relative ${activeTab === 'scheduled' ? 'text-cyan-600' : 'text-slate-400 hover:text-slate-500'}`}
+            >
+              待簽課
+              {activeTab === 'scheduled' && (
+                <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]" />
+              )}
+            </button>
+            <button 
+              onClick={() => setActiveTab('unsigned')}
+              className={`pb-3 text-sm font-bold relative ${activeTab === 'unsigned' ? 'text-cyan-600' : 'text-slate-400 hover:text-slate-500'}`}
+            >
+              未簽名
+              {activeTab === 'unsigned' && (
+                <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]" />
+              )}
+            </button>
+            <button 
+              onClick={() => setActiveTab('completed')}
+              className={`pb-3 text-sm font-bold relative ${activeTab === 'completed' ? 'text-cyan-600' : 'text-slate-400 hover:text-slate-500'}`}
+            >
+              已完成
+              {activeTab === 'completed' && (
+                <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]" />
+              )}
+            </button>
+          </div>
           <button 
-            onClick={() => setActiveTab('scheduled')}
-            className={`pb-3 text-sm font-bold relative ${activeTab === 'scheduled' ? 'text-cyan-600' : 'text-slate-400 hover:text-slate-500'}`}
+            onClick={() => setActiveTab('stats')}
+            className={`pb-3 text-sm font-bold relative ${activeTab === 'stats' ? 'text-cyan-600' : 'text-slate-400 hover:text-slate-500'}`}
           >
-            待簽課
-            {activeTab === 'scheduled' && (
-              <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]" />
-            )}
-          </button>
-          <button 
-            onClick={() => setActiveTab('unsigned')}
-            className={`pb-3 text-sm font-bold relative ${activeTab === 'unsigned' ? 'text-cyan-600' : 'text-slate-400 hover:text-slate-500'}`}
-          >
-            未簽名
-            {activeTab === 'unsigned' && (
-              <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]" />
-            )}
-          </button>
-          <button 
-            onClick={() => setActiveTab('completed')}
-            className={`pb-3 text-sm font-bold relative ${activeTab === 'completed' ? 'text-cyan-600' : 'text-slate-400 hover:text-slate-500'}`}
-          >
-            已完成
-            {activeTab === 'completed' && (
+            統計
+            {activeTab === 'stats' && (
               <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]" />
             )}
           </button>
@@ -97,7 +154,9 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
-        {filteredRecords.length === 0 ? (
+        {activeTab === 'stats' ? (
+          renderStats()
+        ) : filteredRecords.length === 0 ? (
           <div className="text-center py-10 text-slate-400">
             <div className="text-5xl mb-3 opacity-50">📅</div>
             <p>{getEmptyMessage()}</p>

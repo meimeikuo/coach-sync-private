@@ -6,11 +6,13 @@ import CustomTimePicker from './CustomTimePicker';
 
 interface QuickBookingModalProps {
   students: Student[];
+  initialDate?: string;
+  initialTime?: string;
   onClose: () => void;
   onBook: (studentId: string, date: string, time: string) => void;
 }
 
-export default function QuickBookingModal({ students, onClose, onBook }: QuickBookingModalProps) {
+export default function QuickBookingModal({ students, initialDate, initialTime, onClose, onBook }: QuickBookingModalProps) {
   const eligibleStudents = students.filter(s => (s.remainingClasses || 0) > 0);
   const [selectedStudentId, setSelectedStudentId] = useState(eligibleStudents.length > 0 ? eligibleStudents[0].id : '');
   const [showStudentPicker, setShowStudentPicker] = useState(false);
@@ -40,8 +42,8 @@ export default function QuickBookingModal({ students, onClose, onBook }: QuickBo
   
   const defaultTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 
-  const [date, setDate] = useState(defaultDate);
-  const [time, setTime] = useState(defaultTime);
+  const [date, setDate] = useState(initialDate || defaultDate);
+  const [time, setTime] = useState(initialTime || defaultTime);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 

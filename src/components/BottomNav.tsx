@@ -10,6 +10,7 @@ export default function BottomNav({ activeTab, onChange }: BottomNavProps) {
   const tabs = [
     { id: 'dashboard', icon: '🏠', label: '首頁' },
     { id: 'students', icon: '👥', label: '學員' },
+    { id: 'calendar', icon: '📅', label: '行事曆' },
     { id: 'records', icon: '📄', label: '紀錄' },
   ] as const;
 

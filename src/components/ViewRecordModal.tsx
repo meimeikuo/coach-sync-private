@@ -10,9 +10,10 @@ interface ViewRecordModalProps {
   onClose: () => void;
   onUpdate?: (id: string, date: string, time: string) => void;
   onCancelRecord?: (id: string) => void;
+  onSign?: () => void;
 }
 
-export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRecord }: ViewRecordModalProps) {
+export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRecord, onSign }: ViewRecordModalProps) {
   if (!record) return null;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -201,16 +202,24 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
             <div className="mt-4 pt-4 border-t border-slate-200 flex space-x-3 shrink-0">
               <button 
                 onClick={() => setShowCancelConfirm(true)}
-                className="flex-1 py-3 bg-red-50 text-red-600 font-bold rounded-xl text-sm hover:bg-red-100"
+                className="flex-1 py-3 bg-red-50 text-red-600 font-bold rounded-xl text-sm hover:bg-red-100 px-2"
               >
-                取消課程
+                取消
               </button>
               <button 
                 onClick={() => setIsEditing(true)}
-                className="flex-1 py-3 bg-cyan-500 text-white font-bold rounded-xl text-sm shadow-lg shadow-cyan-500/20"
+                className="flex-1 py-3 bg-cyan-50 text-cyan-600 font-bold rounded-xl text-sm hover:bg-cyan-100 px-2"
               >
                 編輯
               </button>
+              {onSign && (
+                <button 
+                  onClick={onSign}
+                  className="flex-[1.5] py-3 bg-cyan-500 text-white font-bold rounded-xl text-sm shadow-lg shadow-cyan-500/20 px-2"
+                >
+                  簽課
+                </button>
+              )}
             </div>
           )}
         </div>

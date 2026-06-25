@@ -41,4 +41,4 @@ export interface ClassRecord {
   signedAt?: string;
 }
 
-export type TabType = 'dashboard' | 'students' | 'records';
+export type TabType = 'dashboard' | 'students' | 'records' | 'calendar';
