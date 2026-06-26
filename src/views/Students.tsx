@@ -225,7 +225,14 @@ export default function Students({ students, records, purchaseRecords = [], isAd
 
   const filteredStudents = students.filter(s => 
     s.name.includes(search) && (s.courseType === courseTypeTab || (!s.courseType && courseTypeTab === 'physical'))
-  );
+  ).sort((a, b) => {
+    const aIsEmpty = a.courseType === 'online' ? (new Date(a.endDate || '') < new Date()) : ((a.remainingClasses || 0) <= 0);
+    const bIsEmpty = b.courseType === 'online' ? (new Date(b.endDate || '') < new Date()) : ((b.remainingClasses || 0) <= 0);
+    
+    if (aIsEmpty && !bIsEmpty) return 1;
+    if (!aIsEmpty && bIsEmpty) return -1;
+    return 0;
+  });
 
   useEffect(() => {
     if (showInlineTimePicker) {
@@ -378,22 +385,25 @@ export default function Students({ students, records, purchaseRecords = [], isAd
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-3">
-        {filteredStudents.map((student) => (
+        {filteredStudents.map((student) => {
+          const isEmpty = student.courseType === 'online' ? (new Date(student.endDate || '') < new Date()) : ((student.remainingClasses || 0) <= 0);
+
+          return (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             key={student.id} 
             onClick={() => setViewingStudent(student)}
-            className="bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 flex items-center justify-between cursor-pointer active:scale-95 transition-all hover:bg-white hover:shadow-[0_0_25px_rgba(6,182,212,0.2)] hover:border-cyan-200 group relative overflow-hidden"
+            className={`bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-[0_0_15px_rgba(6,182,212,0.05)] border border-cyan-100/50 flex items-center justify-between cursor-pointer active:scale-95 transition-all group relative overflow-hidden ${isEmpty ? 'empty-classes opacity-60 !bg-slate-100 grayscale-[0.2] border-slate-200' : 'hover:bg-white hover:shadow-[0_0_25px_rgba(6,182,212,0.2)] hover:border-cyan-200'}`}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 to-cyan-500/0 group-hover:from-cyan-500/5 group-hover:to-transparent transition-all duration-500" />
             <div className="relative z-10 flex items-center space-x-4">
-              <div className="w-12 h-12 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded-full flex items-center justify-center font-bold text-lg group-hover:bg-cyan-100 group-hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all">
+              <div className={`w-12 h-12 flex items-center justify-center font-bold text-lg rounded-full border transition-all ${isEmpty ? 'bg-slate-200 text-slate-500 border-slate-300' : 'bg-cyan-50 text-cyan-600 border-cyan-100 group-hover:bg-cyan-100 group-hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'}`}>
                 {student.name.charAt(0)}
               </div>
               <div>
                 <div className="flex items-center space-x-2">
-                  <h3 className="font-semibold text-slate-900">{student.name}</h3>
+                  <h3 className={`font-semibold ${isEmpty ? 'text-slate-600' : 'text-slate-900'}`}>{student.name}</h3>
                 </div>
               </div>
             </div>
@@ -401,12 +411,12 @@ export default function Students({ students, records, purchaseRecords = [], isAd
               <div className="text-right">
                 {student.courseType === 'online' ? (
                   <>
-                    <div className="text-sm font-bold text-cyan-600">{student.endDate?.replace(/-/g, '/')}</div>
+                    <div className={`text-sm font-bold ${isEmpty ? 'text-slate-500' : 'text-cyan-600'}`}>{student.endDate?.replace(/-/g, '/')}</div>
                     <div className="text-[10px] text-slate-400">結束日期</div>
                   </>
                 ) : (
                   <>
-                    <div className="text-xl font-bold text-cyan-600">{student.remainingClasses || 0}</div>
+                    <div className={`text-xl font-bold ${isEmpty ? 'text-slate-500' : 'text-cyan-600'}`}>{student.remainingClasses || 0}</div>
                     <div className="text-[10px] text-slate-400">剩餘堂數</div>
                   </>
                 )}
@@ -417,11 +427,11 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                     e.stopPropagation();
                     setRenewingStudent(student);
                   }}
-                  className="flex items-center space-x-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-lg text-xs font-bold active:scale-95 transition-transform hover:bg-emerald-100"
+                  className={`flex items-center space-x-1 px-3 py-1.5 border rounded-lg text-xs font-bold active:scale-95 transition-transform ${isEmpty ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100 shadow-[0_0_10px_rgba(249,115,22,0.2)]' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'}`}
                 >
                   <span>🔄 續課</span>
                 </button>
-                {student.courseType !== 'online' && (
+                {student.courseType !== 'online' && !isEmpty && (
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
@@ -435,7 +445,8 @@ export default function Students({ students, records, purchaseRecords = [], isAd
               </div>
             </div>
           </motion.div>
-        ))}
+        );
+        })}
 
         {filteredStudents.length === 0 && (
           <div className="text-center py-10 text-slate-400">

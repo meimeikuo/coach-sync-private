@@ -199,23 +199,25 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
               </button>
             </div>
           ) : isScheduled && (
-            <div className="mt-4 pt-4 border-t border-slate-200 flex space-x-3 shrink-0">
-              <button 
-                onClick={() => setShowCancelConfirm(true)}
-                className="flex-1 py-3 bg-red-50 text-red-600 font-bold rounded-xl text-sm hover:bg-red-100 px-2"
-              >
-                取消
-              </button>
-              <button 
-                onClick={() => setIsEditing(true)}
-                className="flex-1 py-3 bg-cyan-50 text-cyan-600 font-bold rounded-xl text-sm hover:bg-cyan-100 px-2"
-              >
-                編輯
-              </button>
+            <div className="mt-4 pt-4 border-t border-slate-200 flex flex-col space-y-3 shrink-0">
+              <div className="flex space-x-3">
+                <button 
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="flex-1 py-3 bg-red-50 text-red-600 font-bold rounded-xl text-sm hover:bg-red-100 px-2"
+                >
+                  刪除
+                </button>
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  className="flex-1 py-3 bg-cyan-50 text-cyan-600 font-bold rounded-xl text-sm hover:bg-cyan-100 px-2"
+                >
+                  編輯
+                </button>
+              </div>
               {onSign && (
                 <button 
                   onClick={onSign}
-                  className="flex-[1.5] py-3 bg-cyan-500 text-white font-bold rounded-xl text-sm shadow-lg shadow-cyan-500/20 px-2"
+                  className="w-full py-3 bg-cyan-500 text-white font-bold rounded-xl text-sm shadow-lg shadow-cyan-500/20 px-2"
                 >
                   簽課
                 </button>
@@ -240,8 +242,8 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-white w-full max-w-xs rounded-[2rem] p-6 shadow-2xl text-center"
             >
-              <h3 className="text-lg font-bold text-slate-900 mb-2">確認取消課程？</h3>
-              <p className="text-sm text-slate-500 mb-6">此操作無法復原，確定要取消此課程安排嗎？</p>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">確認刪除課程？</h3>
+              <p className="text-sm text-slate-500 mb-6">此操作無法復原，確定要刪除此課程安排嗎？</p>
               <div className="flex space-x-3">
                 <button 
                   onClick={() => setShowCancelConfirm(false)}
@@ -270,7 +272,7 @@ export default function ViewRecordModal({ record, onClose, onUpdate, onCancelRec
                   }}
                   className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-500/20"
                 >
-                  確認取消
+                  確認刪除
                 </button>
               </div>
             </motion.div>

@@ -16,10 +16,11 @@ interface CalendarViewProps {
   records: ClassRecord[];
   onScheduleClass: (recordData: Omit<ClassRecord, 'id' | 'createdAt' | 'status'>) => void;
   onUpdateRecord: (id: string, date: string, time: string) => void;
+  onDeleteRecord: (id: string) => void;
   onSignRecord: (id: string, coachSig: string, studentSig: string) => void;
 }
 
-export default function CalendarView({ students, records, onScheduleClass, onUpdateRecord, onSignRecord }: CalendarViewProps) {
+export default function CalendarView({ students, records, onScheduleClass, onUpdateRecord, onDeleteRecord, onSignRecord }: CalendarViewProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -193,6 +194,7 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
           nowIndicator={true}
           headerToolbar={false}
           dayHeaders={false}
+          expandRows={true}
           events={events}
           dateClick={handleDateClick}
           eventClick={handleEventClick}
@@ -251,6 +253,10 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
           onClose={() => setViewingRecordId(null)}
           onUpdate={(id, date, time) => {
             onUpdateRecord(id, date, time);
+            setViewingRecordId(null);
+          }}
+          onCancelRecord={(id) => {
+            onDeleteRecord(id);
             setViewingRecordId(null);
           }}
           onSign={() => {
