@@ -165,14 +165,31 @@ export default function App() {
     }
   };
 
-  const handleScheduleClass = async (recordData: Omit<ClassRecord, 'id' | 'createdAt' | 'status'>) => {
+  const handleScheduleClass = async (recordData: Partial<ClassRecord>) => {
     try {
       const path = 'records';
-      await addDoc(collection(db, path), {
+      const type = recordData.type || 'class';
+      
+      let endTime = recordData.endTime;
+      if (!endTime && recordData.time) {
+        const [hStr, mStr] = recordData.time.split(':');
+        const hNum = parseInt(hStr, 10);
+        const mNum = parseInt(mStr, 10);
+        let newH = hNum + 1;
+        if (newH > 23) newH = 23;
+        endTime = `${newH.toString().padStart(2, '0')}:${mNum.toString().padStart(2, '0')}`;
+      }
+
+      const dataToSave = {
         ...recordData,
+        type,
+        endTime,
         status: 'scheduled',
         createdAt: new Date().toISOString()
-      });
+      };
+      delete dataToSave.id;
+
+      await addDoc(collection(db, path), dataToSave);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'records');
     }
@@ -342,13 +359,24 @@ export default function App() {
     }
   };
 
-  const handleUpdateRecord = async (id: string, date: string, time: string) => {
+  const handleUpdateRecord = async (id: string, date: string, time: string, endTime?: string) => {
     try {
       const recordRef = doc(db, 'records', id);
-      await updateDoc(recordRef, {
+      const updateData: any = {
         date,
         time
-      });
+      };
+      if (endTime) {
+        updateData.endTime = endTime;
+      } else {
+        const [hStr, mStr] = time.split(':');
+        const hNum = parseInt(hStr, 10);
+        const mNum = parseInt(mStr, 10);
+        let newH = hNum + 1;
+        if (newH > 23) newH = 23;
+        updateData.endTime = `${newH.toString().padStart(2, '0')}:${mNum.toString().padStart(2, '0')}`;
+      }
+      await updateDoc(recordRef, updateData);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `records/${id}`);
     }

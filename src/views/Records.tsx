@@ -17,9 +17,11 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
   const [signingRecord, setSigningRecord] = useState<ClassRecord | null>(null);
   const [viewingRecordId, setViewingRecordId] = useState<string | null>(null);
 
-  const viewingRecord = records.find(r => r.id === viewingRecordId);
+  const classRecords = records.filter(r => r.type !== 'custom');
 
-  const filteredRecords = [...records].filter(r => {
+  const viewingRecord = classRecords.find(r => r.id === viewingRecordId);
+
+  const filteredRecords = [...classRecords].filter(r => {
     const displayStatus = getRecordDisplayStatus(r);
     const matchesSearch = r.studentName.includes(search);
     
@@ -60,7 +62,7 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
     return (
       <div className="space-y-3">
         {months.map(monthStr => {
-          const count = records.filter(r => r.date.startsWith(monthStr) && getRecordDisplayStatus(r) === 'completed').length;
+          const count = classRecords.filter(r => r.date.startsWith(monthStr) && getRecordDisplayStatus(r) === 'completed').length;
           const [year, month] = monthStr.split('-');
           return (
             <motion.div 

@@ -332,7 +332,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
 
   const getStudentRecords = (studentName: string) => {
     return records
-      .filter(r => r.studentName === studentName)
+      .filter(r => r.studentName === studentName && r.type !== 'custom')
       .sort((a, b) => {
         const dateA = new Date(`${a.date}T${a.time}`);
         const dateB = new Date(`${b.date}T${b.time}`);

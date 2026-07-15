@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Student } from '../types';
 import CustomDatePicker from './CustomDatePicker';
 import CustomTimePicker from './CustomTimePicker';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface QuickBookingModalProps {
   students: Student[];
@@ -11,6 +13,29 @@ interface QuickBookingModalProps {
   onClose: () => void;
   onBook: (studentId: string, date: string, time: string) => void;
 }
+
+const timeToMinutes = (timeStr?: string): number => {
+  try {
+    if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) return -1;
+    const [hours, minutes] = timeStr.trim().split(':').map(Number);
+    return (hours * 60) + (isNaN(minutes) ? 0 : minutes);
+  } catch (err) {
+    return -1;
+  }
+};
+
+const calculateEndTime = (startTime: string) => {
+  const [hStr, mStr] = startTime.split(':');
+  const hNum = parseInt(hStr, 10);
+  const mNum = parseInt(mStr, 10);
+  let newH = hNum + 1;
+  let newM = mNum;
+  if (newH > 23) {
+    newH = 23;
+    newM = 59;
+  }
+  return `${newH.toString().padStart(2, '0')}:${newM.toString().padStart(2, '0')}`;
+};
 
 export default function QuickBookingModal({ students, initialDate, initialTime, onClose, onBook }: QuickBookingModalProps) {
   const eligibleStudents = students.filter(s => (s.remainingClasses || 0) > 0);
@@ -46,6 +71,7 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
   const [time, setTime] = useState(initialTime || defaultTime);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     const now = new Date();
@@ -81,11 +107,96 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
 
   const selectedStudent = eligibleStudents.find(s => s.id === selectedStudentId);
 
-  const handleBook = () => {
-    if (!selectedStudentId) return;
+  const handleBook = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedStudentId) {
+      setErrorMsg('請選擇學員');
+      return;
+    }
 
-    onBook(selectedStudentId, date, time);
-    onClose();
+    try {
+      setErrorMsg('');
+
+      const endTime = calculateEndTime(time);
+      const newStartMin = timeToMinutes(time);
+      const newEndMin = timeToMinutes(endTime);
+
+      if (newStartMin === -1 || newEndMin === -1) {
+        setErrorMsg('⚠️ 您的輸入時間格式有誤，請重新檢查！');
+        return; 
+      }
+
+      const recordsRef = collection(db, 'records');
+
+      // 虛擬堂數預扣檢查
+      if (selectedStudent?.courseType !== 'online') {
+        const remainingLessons = selectedStudent?.remainingClasses || 0;
+        const qRemaining = query(
+          recordsRef,
+          where('studentName', '==', selectedStudent?.name || ''),
+          where('status', '==', 'scheduled')
+        );
+        const querySnapshot = await getDocs(qRemaining);
+        const pendingSlots: string[] = [];
+        querySnapshot.forEach((doc) => {
+          const event = doc.data();
+          const pDate = event.date; // 例如: "2026-07-16"
+          const pStart = event.startTime || event.time; // 例如: "11:00"
+          
+          if (pDate && pStart) {
+            const shortDate = pDate.replace(/^\d{4}-/, '').replace(/^\d{4}\//, ''); // 去除年份，只留月/日
+            pendingSlots.push(`${shortDate} ${pStart}`);
+          }
+        });
+
+        if (remainingLessons - pendingSlots.length <= 0) {
+          setErrorMsg(`⚠️ 約課失敗！該學員剩餘堂數為 ${remainingLessons} 堂，已預約 ${pendingSlots.join('、')}！`);
+          return;
+        }
+      }
+
+      const dateDash = date.replace(/\//g, '-'); 
+      const dateSlash = date.replace(/-/g, '/');
+      
+      const [snapDash, snapSlash] = await Promise.all([
+        getDocs(query(recordsRef, where('date', '==', dateDash))),
+        getDocs(query(recordsRef, where('date', '==', dateSlash)))
+      ]);
+      const allDocs = [...snapDash.docs, ...snapSlash.docs];
+
+      let hasConflict = false;
+      let conflictName = '';
+      
+      allDocs.forEach((doc) => {
+        const event = doc.data();
+        const dbStartStr = event.startTime || event.time;
+        let dbEndStr = event.endTime;
+        let dbStartMin = timeToMinutes(dbStartStr);
+        let dbEndMin = dbEndStr ? timeToMinutes(dbEndStr) : (dbStartMin !== -1 ? dbStartMin + 60 : -1);
+
+        if (dbStartMin !== -1 && dbEndMin !== -1) {
+          if (newStartMin < dbEndMin && newEndMin > dbStartMin) {
+            hasConflict = true;
+            if (!conflictName) {
+              conflictName = event.studentName || event.title || event.eventName || event.name || '未知';
+            }
+          }
+        }
+      });
+
+      if (hasConflict) {
+        console.log("🚨 快速約課：抓到時間重疊！攔截！");
+        setErrorMsg(`⚠️ 此時段已有【${conflictName}】行程安排！`);
+        return; // 阻擋寫入
+      }
+
+      onBook(selectedStudentId, dateDash, time);
+      onClose();
+
+    } catch (error) {
+      console.error("快速約課儲存錯誤:", error);
+      setErrorMsg('系統發生預期外的錯誤，請打開 F12 Console 查看。');
+    }
   };
 
   return (
@@ -153,6 +264,8 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
               </div>
             </div>
         </div>
+
+        {errorMsg && <div className="mt-4 text-red-500 text-center font-bold">{errorMsg}</div>}
 
         <div className="flex space-x-3 mt-8">
           <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl">取消</button>

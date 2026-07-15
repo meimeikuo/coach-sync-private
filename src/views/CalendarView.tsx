@@ -6,7 +6,7 @@ import interactionPlugin, { DateClickArg } from '@fullcalendar/interaction';
 import { EventClickArg } from '@fullcalendar/core';
 
 import { Student, ClassRecord } from '../types';
-import QuickBookingModal from '../components/QuickBookingModal';
+import CalendarEventModal from '../components/CalendarEventModal';
 import ViewRecordModal from '../components/ViewRecordModal';
 import SigningModal from '../components/SigningModal';
 import { getRecordDisplayStatus } from '../utils/recordUtils';
@@ -14,8 +14,8 @@ import { getRecordDisplayStatus } from '../utils/recordUtils';
 interface CalendarViewProps {
   students: Student[];
   records: ClassRecord[];
-  onScheduleClass: (recordData: Omit<ClassRecord, 'id' | 'createdAt' | 'status'>) => void;
-  onUpdateRecord: (id: string, date: string, time: string) => void;
+  onScheduleClass: (recordData: Partial<ClassRecord>) => void;
+  onUpdateRecord: (id: string, date: string, time: string, endTime?: string) => void;
   onDeleteRecord: (id: string) => void;
   onSignRecord: (id: string, coachSig: string, studentSig: string) => void;
 }
@@ -24,13 +24,15 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
   const calendarRef = useRef<FullCalendar>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  const [showQuickBooking, setShowQuickBooking] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
   const [selectedDateForBooking, setSelectedDateForBooking] = useState<{ date: string; time: string } | null>(null);
   
   const [signingRecord, setSigningRecord] = useState<ClassRecord | null>(null);
   const [viewingRecordId, setViewingRecordId] = useState<string | null>(null);
+  const [editingCustomRecordId, setEditingCustomRecordId] = useState<string | null>(null);
 
   const viewingRecord = records.find(r => r.id === viewingRecordId);
+  const editingRecord = records.find(r => r.id === editingCustomRecordId);
 
   // Generate week days around currentDate
   const getWeekDays = (baseDate: Date) => {
@@ -68,6 +70,30 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
     newDate.setDate(newDate.getDate() + 7);
     handleDateSelect(newDate);
   };
+  
+  const checkConflict = (date: string, startTime: string, endTime: string, excludeId?: string) => {
+    const dbDate = date.replace(/\//g, '-'); 
+    
+    const conflictRecord = records.find(r => {
+      if (r.id === excludeId) return false;
+      if (r.date !== dbDate) return false;
+      
+      const dbStart = r.time;
+      let dbEnd = r.endTime;
+      if (!dbEnd && dbStart) {
+        const [h, m] = dbStart.split(':');
+        const endH = String(Number(h) + 1).padStart(2, '0');
+        dbEnd = `${endH}:${m}`; 
+      }
+      
+      if (dbStart && dbEnd) {
+        return (startTime < dbEnd && endTime > dbStart);
+      }
+      return false;
+    });
+    
+    return conflictRecord || null;
+  };
 
   // Convert records to FullCalendar events
   const events = useMemo(() => {
@@ -78,7 +104,11 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
       let textColor = '#0369A1'; // sky-700
       let borderColor = '#38BDF8'; // sky-400 (for border-left)
 
-      if (displayStatus === 'late_pending') {
+      if (record.type === 'custom') {
+        backgroundColor = 'rgba(254, 249, 195, 0.8)'; // yellow-100
+        textColor = '#A16207'; // yellow-700
+        borderColor = '#FACC15'; // yellow-400
+      } else if (displayStatus === 'late_pending') {
         backgroundColor = 'rgba(254, 215, 170, 0.4)'; // orange-200 with opacity
         textColor = '#C2410C'; // orange-700
         borderColor = '#FB923C'; // orange-400
@@ -89,9 +119,8 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
       }
 
       const startDateTime = `${record.date}T${record.time}:00`;
-      
       const startDate = new Date(startDateTime);
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 hour
+      const endDate = record.endTime ? new Date(`${record.date}T${record.endTime}:00`) : new Date(startDate.getTime() + 60 * 60 * 1000);
 
       return {
         id: record.id,
@@ -120,14 +149,21 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
       date: `${year}-${month}-${day}`,
       time: `${hours}:${minutes}`
     });
-    setShowQuickBooking(true);
+    setEditingCustomRecordId(null);
+    setShowEventModal(true);
   };
 
   const handleEventClick = (arg: EventClickArg) => {
     const recordId = arg.event.id;
     const record = records.find(r => r.id === recordId);
     if (!record) return;
-    setViewingRecordId(recordId);
+    
+    if (record.type === 'custom') {
+      setEditingCustomRecordId(recordId);
+      setShowEventModal(true);
+    } else {
+      setViewingRecordId(recordId);
+    }
   };
 
   const currentMonthStr = `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月`;
@@ -231,19 +267,27 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
         />
       </div>
 
-      {showQuickBooking && (
-        <QuickBookingModal
+      {showEventModal && (
+        <CalendarEventModal
           students={students}
+          records={records}
           initialDate={selectedDateForBooking?.date}
           initialTime={selectedDateForBooking?.time}
-          onBook={(studentId, date, time) => {
-            const student = students.find(s => s.id === studentId);
-            if (student) {
-              onScheduleClass({ studentName: student.name, date, time });
+          editRecord={editingRecord}
+          checkConflict={checkConflict}
+          onBook={(recordData) => {
+            if (recordData.id) {
+              onUpdateRecord(recordData.id, recordData.date!, recordData.time!, recordData.endTime);
+            } else {
+              onScheduleClass(recordData);
             }
-            setShowQuickBooking(false);
+            setShowEventModal(false);
           }}
-          onClose={() => setShowQuickBooking(false)}
+          onDelete={(id) => {
+            onDeleteRecord(id);
+            setShowEventModal(false);
+          }}
+          onClose={() => setShowEventModal(false)}
         />
       )}
 
@@ -252,7 +296,20 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
           record={viewingRecord}
           onClose={() => setViewingRecordId(null)}
           onUpdate={(id, date, time) => {
-            onUpdateRecord(id, date, time);
+            // Check conflict for regular classes too
+            let newEndTime = viewingRecord.endTime;
+            if (!newEndTime) {
+              const [h, m] = time.split(':');
+              newEndTime = `${Math.min(parseInt(h, 10) + 1, 23).toString().padStart(2, '0')}:${m}`;
+            }
+            const conflict = checkConflict(date, time, newEndTime, id);
+            if (conflict) {
+              alert('⚠️ 此時段已有安排！'); // 雙重測試防呆
+              const conflictName = conflict.type === 'custom' ? conflict.studentName : (conflict.studentName + ' 的課程');
+              alert(`⚠️ 此時段已有 [${conflictName}] 安排！`);
+              return;
+            }
+            onUpdateRecord(id, date, time, newEndTime);
             setViewingRecordId(null);
           }}
           onCancelRecord={(id) => {

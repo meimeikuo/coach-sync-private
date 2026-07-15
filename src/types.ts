@@ -34,11 +34,13 @@ export interface ClassRecord {
   studentName: string;
   date: string;
   time: string;
+  endTime?: string;
   status: 'scheduled' | 'completed';
   createdAt: string;
   coachSignature?: string;
   studentSignature?: string;
   signedAt?: string;
+  type?: 'class' | 'custom';
 }
 
 export type TabType = 'dashboard' | 'students' | 'records' | 'calendar';

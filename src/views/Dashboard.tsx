@@ -24,12 +24,14 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
   const [showQuickBookingModal, setShowQuickBookingModal] = useState(false);
   const [showEditLessonModal, setShowEditLessonModal] = useState(false);
 
-  const viewingRecord = records.find(r => r.id === viewingRecordId);
+  const classRecords = records.filter(r => r.type !== 'custom');
+
+  const viewingRecord = classRecords.find(r => r.id === viewingRecordId);
   const now = new Date();
   const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
   
   // Show only today's records
-  const dashboardRecords = records.filter(r => 
+  const dashboardRecords = classRecords.filter(r => 
     r.date === today
   ).sort((a, b) => {
     // Sort by time
@@ -117,7 +119,7 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
 
       {showEditLessonModal && (
         <EditLessonModal
-          records={records}
+          records={classRecords}
           onUpdate={(id, date, time) => {
             onUpdateRecord(id, date, time);
             setShowEditLessonModal(false);
