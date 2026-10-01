@@ -65,8 +65,8 @@ export default function Students({ students, records, purchaseRecords = [], isAd
     endDate: string;
   }>({
     name: '',
-    remainingClasses: 10,
-    totalClasses: 10,
+    remainingClasses: 12,
+    totalClasses: 12,
     courseType: 'physical',
     onlineDuration: 'quarter',
     startDate: new Date().toISOString().split('T')[0],
@@ -281,8 +281,8 @@ export default function Students({ students, records, purchaseRecords = [], isAd
     setShowAddModal(false);
     setNewStudent({ 
       name: '', 
-      remainingClasses: 10, 
-      totalClasses: 10,
+      remainingClasses: 12, 
+      totalClasses: 12,
       courseType: 'physical',
       onlineDuration: 'quarter',
       startDate: new Date().toISOString().split('T')[0],
@@ -801,19 +801,24 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-slate-700">購買堂數</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {[12, 24, 36].map((classes) => (
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: '體驗', classes: 1 },
+                        { label: '12 堂', classes: 12 },
+                        { label: '24 堂', classes: 24 },
+                        { label: '36 堂', classes: 36 }
+                      ].map((item) => (
                         <button
-                          key={classes}
+                          key={item.label}
                           type="button"
-                          onClick={() => setNewStudent({...newStudent, totalClasses: classes, remainingClasses: classes})}
+                          onClick={() => setNewStudent({...newStudent, totalClasses: item.classes, remainingClasses: item.classes})}
                           className={`py-3 rounded-xl font-bold text-sm transition-all ${
-                            newStudent.totalClasses === classes
+                            newStudent.totalClasses === item.classes
                               ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30'
                               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                           }`}
                         >
-                          {classes} 堂
+                          {item.label}
                         </button>
                       ))}
                     </div>
