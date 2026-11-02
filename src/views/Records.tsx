@@ -56,11 +56,6 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
         getRecordDisplayStatus(record) === 'completed'
       );
     };
-
-    const isScheduled = (record: ClassRecord) => {
-      return (record.status === 'scheduled' || !record.status) && !isCompleted(record);
-    };
-
     // Robust date parser for records supporting YYYY-MM-DD, YYYY/MM/DD, single-digit month/day
     const parseRecordDate = (dateStr?: string) => {
       if (!dateStr) return null;
@@ -101,8 +96,10 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
       return parsed.timestamp >= mondayTs && parsed.timestamp <= sundayTs;
     };
 
+    // 已完成：本週區間內 isCompleted === true 的堂數
     const weekCompleted = classRecords.filter(r => isRecordInCurrentWeek(r) && isCompleted(r)).length;
-    const weekScheduled = classRecords.filter(r => isRecordInCurrentWeek(r) && isScheduled(r)).length;
+    // 已排課（總排課量）：本週區間內所有預約課程總數（包含已完成與待完成）
+    const weekScheduled = classRecords.filter(r => isRecordInCurrentWeek(r)).length;
 
     // 2. Current Month (1st 00:00 to last day 23:59)
     const monthLabel = `${currentYear}年${currentMonth}月`;
@@ -117,8 +114,10 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
       return parsed.year === currentYear && parsed.month === currentMonth;
     };
 
+    // 已完成：本月區間內 isCompleted === true 的堂數
     const monthCompleted = classRecords.filter(r => isRecordInCurrentMonth(r) && isCompleted(r)).length;
-    const monthScheduled = classRecords.filter(r => isRecordInCurrentMonth(r) && isScheduled(r)).length;
+    // 已排課（總排課量）：本月區間內所有預約課程總數（包含已完成與待完成）
+    const monthScheduled = classRecords.filter(r => isRecordInCurrentMonth(r)).length;
 
     // 3. Historical months list
     const startYear = 2026;
