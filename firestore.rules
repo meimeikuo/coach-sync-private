@@ -43,5 +43,17 @@ service cloud.firestore {
     match /records/{recordId} {
       allow read, write: if isAdmin();
     }
+
+    match /purchase_records/{recordId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /purchases/{purchaseId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /test/{docId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

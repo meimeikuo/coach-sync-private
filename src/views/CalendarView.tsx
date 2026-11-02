@@ -225,7 +225,7 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
           initialView="timeGridDay"
           initialDate={currentDate}
           slotMinTime="09:00:00"
-          slotMaxTime="22:00:00"
+          slotMaxTime="22:30:00"
           allDaySlot={false}
           nowIndicator={true}
           headerToolbar={false}

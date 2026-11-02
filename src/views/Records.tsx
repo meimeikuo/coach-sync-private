@@ -41,11 +41,88 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
   };
 
   const renderStats = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    // Helper functions for unified status checking
+    const isCompleted = (record: ClassRecord) => {
+      return (
+        record.status === 'completed' ||
+        (record.status as string) === 'signed' ||
+        (record as any).signed === true ||
+        Boolean((record as any).signature) ||
+        Boolean(record.coachSignature && record.studentSignature) ||
+        getRecordDisplayStatus(record) === 'completed'
+      );
+    };
+
+    const isScheduled = (record: ClassRecord) => {
+      return (record.status === 'scheduled' || !record.status) && !isCompleted(record);
+    };
+
+    // Robust date parser for records supporting YYYY-MM-DD, YYYY/MM/DD, single-digit month/day
+    const parseRecordDate = (dateStr?: string) => {
+      if (!dateStr) return null;
+      const parts = dateStr.trim().split(/[-/]/).map(Number);
+      if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        return {
+          year: parts[0],
+          month: parts[1],
+          day: parts[2],
+          timestamp: new Date(parts[0], parts[1] - 1, parts[2]).getTime()
+        };
+      }
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        return {
+          year: d.getFullYear(),
+          month: d.getMonth() + 1,
+          day: d.getDate(),
+          timestamp: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+        };
+      }
+      return null;
+    };
+
+    // 1. Current Week (Monday 00:00 to Sunday 23:59)
+    const day = now.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    const mondayTs = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate()).getTime();
+    const sundayTs = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate()).getTime();
+
+    const weekLabel = `${monday.getMonth() + 1}/${monday.getDate()} ~ ${sunday.getMonth() + 1}/${sunday.getDate()}`;
+
+    const isRecordInCurrentWeek = (r: ClassRecord) => {
+      const parsed = parseRecordDate(r.date);
+      if (!parsed) return false;
+      return parsed.timestamp >= mondayTs && parsed.timestamp <= sundayTs;
+    };
+
+    const weekCompleted = classRecords.filter(r => isRecordInCurrentWeek(r) && isCompleted(r)).length;
+    const weekScheduled = classRecords.filter(r => isRecordInCurrentWeek(r) && isScheduled(r)).length;
+
+    // 2. Current Month (1st 00:00 to last day 23:59)
+    const monthLabel = `${currentYear}年${currentMonth}月`;
+    const monthPrefix = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+
+    const isRecordInCurrentMonth = (r: ClassRecord) => {
+      const parsed = parseRecordDate(r.date);
+      if (!parsed) {
+        const d = (r.date || '').replace(/\//g, '-');
+        return d.startsWith(monthPrefix);
+      }
+      return parsed.year === currentYear && parsed.month === currentMonth;
+    };
+
+    const monthCompleted = classRecords.filter(r => isRecordInCurrentMonth(r) && isCompleted(r)).length;
+    const monthScheduled = classRecords.filter(r => isRecordInCurrentMonth(r) && isScheduled(r)).length;
+
+    // 3. Historical months list
     const startYear = 2026;
     const startMonth = 4;
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
 
     const months: string[] = [];
     let y = startYear;
@@ -60,26 +137,114 @@ export default function Records({ records, onSignRecord, onUpdateRecord }: Recor
     }
 
     return (
-      <div className="space-y-3">
-        {months.map(monthStr => {
-          const count = classRecords.filter(r => r.date.startsWith(monthStr) && getRecordDisplayStatus(r) === 'completed').length;
-          const [year, month] = monthStr.split('-');
-          return (
-            <motion.div 
-              key={monthStr}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center"
-            >
-              <div className="font-semibold text-slate-800 text-lg">
-                {year}年{month}月
+      <div className="space-y-4">
+        {/* 週統計卡片 (置頂) */}
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-br from-white/95 to-cyan-50/50 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-cyan-100 relative overflow-hidden"
+        >
+          <div className="flex items-baseline space-x-2 mb-3">
+            <h2 className="font-bold text-slate-900 text-base">本週統計</h2>
+            <span className="text-xs text-slate-400 font-medium">{weekLabel}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="bg-white/90 border border-emerald-100 rounded-2xl p-3 flex flex-col justify-between shadow-2xs">
+              <span className="text-xs font-semibold text-emerald-700 flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>已完成</span>
+              </span>
+              <div className="mt-2 flex items-baseline space-x-1">
+                <span className="text-2xl font-black text-emerald-600 tracking-tight">{weekCompleted}</span>
+                <span className="text-xs font-medium text-slate-400">堂</span>
               </div>
-              <div className="text-cyan-600 font-bold text-xl">
-                {count} 堂
+            </div>
+
+            <div className="bg-white/90 border border-cyan-100 rounded-2xl p-3 flex flex-col justify-between shadow-2xs">
+              <span className="text-xs font-semibold text-cyan-700 flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
+                <span>已排課</span>
+              </span>
+              <div className="mt-2 flex items-baseline space-x-1">
+                <span className="text-2xl font-black text-cyan-600 tracking-tight">{weekScheduled}</span>
+                <span className="text-xs font-medium text-slate-400">堂</span>
               </div>
-            </motion.div>
-          );
-        })}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* 月統計卡片 */}
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-gradient-to-br from-white/95 to-indigo-50/40 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-indigo-100/70 relative overflow-hidden"
+        >
+          <div className="flex items-baseline space-x-2 mb-3">
+            <h2 className="font-bold text-slate-900 text-base">本月統計</h2>
+            <span className="text-xs text-slate-400 font-medium">{monthLabel}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="bg-white/90 border border-emerald-100 rounded-2xl p-3 flex flex-col justify-between shadow-2xs">
+              <span className="text-xs font-semibold text-emerald-700 flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>已完成</span>
+              </span>
+              <div className="mt-2 flex items-baseline space-x-1">
+                <span className="text-2xl font-black text-emerald-600 tracking-tight">{monthCompleted}</span>
+                <span className="text-xs font-medium text-slate-400">堂</span>
+              </div>
+            </div>
+
+            <div className="bg-white/90 border border-indigo-100 rounded-2xl p-3 flex flex-col justify-between shadow-2xs">
+              <span className="text-xs font-semibold text-indigo-700 flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                <span>已排課</span>
+              </span>
+              <div className="mt-2 flex items-baseline space-x-1">
+                <span className="text-2xl font-black text-indigo-600 tracking-tight">{monthScheduled}</span>
+                <span className="text-xs font-medium text-slate-400">堂</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* 歷月已完成明細 */}
+        <div className="pt-2">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h3 className="text-sm font-bold text-slate-700">歷月已完成明細</h3>
+            <span className="text-[11px] text-slate-400">僅列出學員簽到課程</span>
+          </div>
+
+          <div className="space-y-3">
+            {months.map(monthStr => {
+              const [mYear, mMonth] = monthStr.split('-').map(Number);
+              const count = classRecords.filter(r => {
+                const parsed = parseRecordDate(r.date);
+                const isInMonth = parsed ? (parsed.year === mYear && parsed.month === mMonth) : (r.date || '').replace(/\//g, '-').startsWith(monthStr);
+                return isInMonth && isCompleted(r);
+              }).length;
+              const [year, month] = monthStr.split('-');
+              return (
+                <motion.div 
+                  key={monthStr}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white/80 backdrop-blur-md p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center hover:border-cyan-100 transition-colors"
+                >
+                  <div className="font-semibold text-slate-800 text-base sm:text-lg">
+                    {year}年{month}月
+                  </div>
+                  <div className="text-cyan-600 font-bold text-lg sm:text-xl">
+                    {count} 堂
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   };

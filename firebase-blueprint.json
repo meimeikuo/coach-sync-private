@@ -27,6 +27,21 @@
         "signedAt": { "type": "string", "description": "簽署時間" }
       },
       "required": ["studentName", "date", "time", "status", "createdAt"]
+    },
+    "PurchaseRecord": {
+      "title": "PurchaseRecord",
+      "description": "購課與續約紀錄",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string", "description": "學員ID" },
+        "studentName": { "type": "string", "description": "學員姓名" },
+        "purchasedAmount": { "type": "number", "description": "購買堂數" },
+        "purchaseDate": { "type": "string", "description": "購買日期" },
+        "previousTotal": { "type": "number", "description": "購買前總堂數" },
+        "type": { "type": "string", "description": "紀錄類型 (initial/renewal)" },
+        "createdAt": { "type": "number", "description": "建立時間戳" }
+      },
+      "required": ["studentId", "studentName", "purchasedAmount", "purchaseDate", "createdAt"]
     }
   },
   "firestore": {
@@ -37,6 +52,14 @@
     "/records/{recordId}": {
       "schema": "ClassRecord",
       "description": "課程紀錄集合"
+    },
+    "/purchase_records/{recordId}": {
+      "schema": "PurchaseRecord",
+      "description": "購課紀錄集合"
+    },
+    "/purchases/{purchaseId}": {
+      "schema": "PurchaseRecord",
+      "description": "舊版購課紀錄集合"
     }
   }
 }

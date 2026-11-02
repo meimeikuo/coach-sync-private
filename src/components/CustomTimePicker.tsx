@@ -9,7 +9,7 @@ interface CustomTimePickerProps {
 }
 
 export default function CustomTimePicker({ value, date, onChange, onClose }: CustomTimePickerProps) {
-  const hours = Array.from({ length: 13 }, (_, i) => (i + 9).toString().padStart(2, '0'));
+  const hours = Array.from({ length: 14 }, (_, i) => (i + 9).toString().padStart(2, '0'));
   const minutes = ['00', '30'];
 
   const [selectedHour, setSelectedHour] = useState((value || '09:00').split(':')[0]);

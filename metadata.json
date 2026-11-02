@@ -3,5 +3,8 @@
   "description": "專屬教練的學員管理與 AI 自動課程平台",
   "requestFramePermissions": [
     "camera"
+  ],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
 }
