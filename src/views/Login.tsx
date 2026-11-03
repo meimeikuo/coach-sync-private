@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from 'firebase/auth';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  sendPasswordResetEmail 
+} from 'firebase/auth';
 import { auth } from '../firebase';
 
 const ALLOWED_EMAILS = ['jas60523@gmail.com', 'yoshiki840417@gmail.com'];
@@ -13,14 +17,16 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [isFirstTime, setIsFirstTime] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [step, setStep] = useState<'email' | 'password'>('email');
   const [error, setError] = useState('');
+  const [resetSuccessMsg, setResetSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleCheckEmail = async (e: React.FormEvent) => {
+  const handleCheckEmail = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setResetSuccessMsg('');
     
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
@@ -40,29 +46,13 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       return;
     }
 
-    setLoading(true);
-    try {
-      // Check if user exists in Firebase Auth
-      const methods = await fetchSignInMethodsForEmail(auth, normalizedEmail);
-      if (methods.length === 0) {
-        setIsFirstTime(true);
-      } else {
-        setIsFirstTime(false);
-      }
-      setStep('password');
-    } catch (err: any) {
-      console.error('Check email error:', err);
-      // Fallback: assume not first time if check fails (e.g. due to security settings)
-      setIsFirstTime(false);
-      setStep('password');
-    } finally {
-      setLoading(false);
-    }
+    setStep('password');
   };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setResetSuccessMsg('');
 
     if (!password) {
       setError('請輸入密碼');
@@ -73,44 +63,85 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      if (isFirstTime) {
+
+      if (isSignUp) {
         if (password !== confirmPassword) {
-          throw new Error('密碼不一致');
-        }
-        if (password.length < 6) {
-          throw new Error('密碼長度至少 6 位');
-        }
-        
-        await createUserWithEmailAndPassword(auth, normalizedEmail, password);
-      } else {
-        await signInWithEmailAndPassword(auth, normalizedEmail, password);
-      }
-      onLoginSuccess();
-    } catch (err: any) {
-      console.error('Auth error:', err);
-      
-      // If email already in use, try signing in instead
-      if (err.code === 'auth/email-already-in-use') {
-        try {
-          await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
-          onLoginSuccess();
-          return;
-        } catch (signInErr: any) {
-          setError('密碼錯誤');
+          setError('確認密碼不一致');
           setLoading(false);
           return;
         }
+        if (password.length < 6) {
+          setError('密碼長度至少需要 6 位');
+          setLoading(false);
+          return;
+        }
+        
+        try {
+          await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+          onLoginSuccess();
+          return;
+        } catch (createErr: any) {
+          // If the email already exists in Auth, seamlessly try signing in
+          if (createErr.code === 'auth/email-already-in-use') {
+            try {
+              await signInWithEmailAndPassword(auth, normalizedEmail, password);
+              onLoginSuccess();
+              return;
+            } catch {
+              setIsSignUp(false);
+              setError('此帳號先前已設定過密碼。若忘記密碼，請點擊下方「忘記密碼」重設。');
+              setLoading(false);
+              return;
+            }
+          }
+          throw createErr;
+        }
+      } else {
+        // Standard Sign In
+        try {
+          await signInWithEmailAndPassword(auth, normalizedEmail, password);
+          onLoginSuccess();
+          return;
+        } catch (signInErr: any) {
+          if (signInErr.code === 'auth/user-not-found') {
+            // User doesn't exist yet in Auth, switch to first-time setup
+            setIsSignUp(true);
+            setError('此帳號尚未設定登入密碼，請於下方設定專屬密碼');
+            setLoading(false);
+            return;
+          } else if (
+            signInErr.code === 'auth/wrong-password' || 
+            signInErr.code === 'auth/invalid-credential'
+          ) {
+            setError('密碼錯誤，請重新輸入。若忘記密碼，可點擊下方「忘記密碼」重設。');
+            setLoading(false);
+            return;
+          }
+          throw signInErr;
+        }
       }
+    } catch (err: any) {
+      setError(err.message || '登入失敗，請檢查帳號密碼');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      let message = '登入失敗，請檢查帳號密碼';
-      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        message = '密碼錯誤';
-      } else if (err.code === 'auth/user-not-found') {
-        message = '此帳號尚未註冊';
-      } else if (err.message) {
-        message = err.message;
-      }
-      setError(message);
+  const handleForgotPassword = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setError('請先輸入電子郵件');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setResetSuccessMsg('');
+
+    try {
+      await sendPasswordResetEmail(auth, normalizedEmail);
+      setResetSuccessMsg(`已寄送密碼重設信件至 ${normalizedEmail}，請查看信箱完成重設後再進行登入。`);
+    } catch (err: any) {
+      setError('寄送密碼重設信失敗，請確認網路連線或稍後再試。');
     } finally {
       setLoading(false);
     }
@@ -132,8 +163,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             🏋️‍♂️
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Jason Huang 課程系統</h1>
-          <p className="text-slate-500 mt-2">
-            {step === 'email' ? '請登入以繼續使用' : (isFirstTime ? '設定您的專屬密碼' : '請輸入密碼')}
+          <p className="text-slate-500 mt-2 text-sm">
+            {step === 'email' ? '請登入以繼續使用' : (isSignUp ? '設定您的專屬密碼' : '請輸入密碼以登入')}
           </p>
         </div>
 
@@ -141,12 +172,25 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-2xl text-sm mb-6 flex items-center shadow-sm"
+            className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-2xl text-xs sm:text-sm mb-6 flex items-start shadow-sm"
           >
-            <div className="w-6 h-6 bg-red-100 text-red-600 rounded-lg flex items-center justify-center mr-3 text-xs font-bold">
+            <div className="w-5 h-5 bg-red-100 text-red-600 rounded-md flex items-center justify-center mr-2.5 text-xs font-bold shrink-0 mt-0.5">
               !
             </div>
-            {error}
+            <div className="leading-relaxed">{error}</div>
+          </motion.div>
+        )}
+
+        {resetSuccessMsg && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-2xl text-xs sm:text-sm mb-6 flex items-start shadow-sm"
+          >
+            <div className="w-5 h-5 bg-emerald-100 text-emerald-600 rounded-md flex items-center justify-center mr-2.5 text-xs font-bold shrink-0 mt-0.5">
+              ✓
+            </div>
+            <div className="leading-relaxed">{resetSuccessMsg}</div>
           </motion.div>
         )}
 
@@ -160,28 +204,25 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 onChange={e => setEmail(e.target.value)}
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-sm"
                 placeholder="your@email.com"
+                autoFocus
               />
             </div>
             <button 
               type="submit"
               disabled={loading}
-              className="w-full bg-cyan-500 text-white font-bold rounded-xl py-4 active:scale-95 transition-all shadow-lg shadow-cyan-500/30 hover:bg-cyan-400 disabled:opacity-50 flex items-center justify-center"
+              className="w-full bg-cyan-500 text-white font-bold rounded-xl py-4 active:scale-95 transition-all shadow-lg shadow-cyan-500/30 hover:bg-cyan-400 disabled:opacity-50 flex items-center justify-center cursor-pointer"
             >
-              {loading ? (
-                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                '下一步'
-              )}
+              下一步
             </button>
           </form>
         ) : (
           <form onSubmit={handleAuth} noValidate className="space-y-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-500">{email}</span>
+              <span className="text-sm font-medium text-slate-600 truncate mr-2">{email}</span>
               <button 
                 type="button" 
-                onClick={() => setStep('email')}
-                className="text-xs text-cyan-600 font-bold hover:underline"
+                onClick={() => { setStep('email'); setError(''); setResetSuccessMsg(''); }}
+                className="text-xs text-cyan-600 font-bold hover:underline shrink-0 cursor-pointer"
               >
                 修改帳號
               </button>
@@ -189,17 +230,19 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                {isFirstTime ? '設定新密碼' : '請輸入密碼'}
+                {isSignUp ? '設定新密碼' : '密碼'}
               </label>
               <input 
                 type="password" 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-sm"
+                placeholder={isSignUp ? '至少 6 位字元' : '請輸入密碼'}
+                autoFocus
               />
             </div>
 
-            {isFirstTime && (
+            {isSignUp && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">確認新密碼</label>
                 <input 
@@ -207,22 +250,46 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all shadow-sm"
+                  placeholder="請再次輸入密碼"
                 />
-                <p className="text-[10px] text-slate-400 mt-2">這是您第一次登入，請設定您的專屬密碼。</p>
+                <p className="text-[11px] text-slate-400 mt-1.5">這是首次設定密碼，完成後即可以此密碼登入。</p>
               </div>
             )}
 
             <button 
               type="submit"
               disabled={loading}
-              className="w-full bg-cyan-500 text-white font-bold rounded-xl py-4 active:scale-95 transition-all shadow-lg shadow-cyan-500/30 hover:bg-cyan-400 disabled:opacity-50 flex items-center justify-center"
+              className="w-full bg-cyan-500 text-white font-bold rounded-xl py-4 active:scale-95 transition-all shadow-lg shadow-cyan-500/30 hover:bg-cyan-400 disabled:opacity-50 flex items-center justify-center cursor-pointer"
             >
               {loading ? (
                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                isFirstTime ? '設定密碼並登入' : '登入'
+                isSignUp ? '設定密碼並登入' : '登入'
               )}
             </button>
+
+            {/* Helper links: Toggle between login / first-time setup and Forgot Password */}
+            <div className="pt-2 flex items-center justify-between text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError('');
+                  setResetSuccessMsg('');
+                }}
+                className="text-slate-500 hover:text-cyan-600 font-medium transition-colors cursor-pointer"
+              >
+                {isSignUp ? '已有密碼？點此登入' : '首次使用？點此設定密碼'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-cyan-600 hover:text-cyan-700 font-bold transition-colors cursor-pointer"
+              >
+                忘記密碼？
+              </button>
+            </div>
           </form>
         )}
       </motion.div>

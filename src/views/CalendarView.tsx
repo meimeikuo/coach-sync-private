@@ -18,9 +18,10 @@ interface CalendarViewProps {
   onUpdateRecord: (id: string, date: string, time: string, endTime?: string) => void;
   onDeleteRecord: (id: string) => void;
   onSignRecord: (id: string, coachSig: string, studentSig: string) => void;
+  onOpenRenew?: (student: Student) => void;
 }
 
-export default function CalendarView({ students, records, onScheduleClass, onUpdateRecord, onDeleteRecord, onSignRecord }: CalendarViewProps) {
+export default function CalendarView({ students, records, onScheduleClass, onUpdateRecord, onDeleteRecord, onSignRecord, onOpenRenew }: CalendarViewProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -275,6 +276,7 @@ export default function CalendarView({ students, records, onScheduleClass, onUpd
           initialTime={selectedDateForBooking?.time}
           editRecord={editingRecord}
           checkConflict={checkConflict}
+          onOpenRenew={onOpenRenew}
           onBook={(recordData) => {
             if (recordData.id) {
               onUpdateRecord(recordData.id, recordData.date!, recordData.time!, recordData.endTime);

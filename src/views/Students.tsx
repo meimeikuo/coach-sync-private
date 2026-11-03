@@ -6,7 +6,7 @@ import ViewRecordModal from '../components/ViewRecordModal';
 import SigningModal from '../components/SigningModal';
 import CustomTimePicker from '../components/CustomTimePicker';
 import CustomDatePicker from '../components/CustomDatePicker';
-import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass, formatDateWithWeekday, formatDateTimeWithWeekday } from '../utils/recordUtils';
+import { getRecordDisplayStatus, getStatusLabel, getStatusColorClass, formatDateWithWeekday, formatDateTimeWithWeekday, getStudentBookingQuota, formatStudentQuotaLabel } from '../utils/recordUtils';
 
 interface StudentsProps {
   students: Student[];
@@ -294,6 +294,14 @@ export default function Students({ students, records, purchaseRecords = [], isAd
     e.preventDefault();
     if (!schedulingStudent) return;
 
+    if (schedulingStudent.courseType !== 'online') {
+      const quota = getStudentBookingQuota(schedulingStudent, records);
+      if (quota.availableToBook <= 0) {
+        alert('⚠️ 該學員可排課堂數已為 0 ！該續課啦！');
+        return;
+      }
+    }
+
     onScheduleClass({
       studentName: schedulingStudent.name,
       date: scheduleData.date,
@@ -416,8 +424,19 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                   </>
                 ) : (
                   <>
-                    <div className={`text-xl font-bold ${isEmpty ? 'text-slate-500' : 'text-cyan-600'}`}>{student.remainingClasses || 0}</div>
-                    <div className="text-[10px] text-slate-400">剩餘堂數</div>
+                    {(() => {
+                      const { rawRemaining, pendingLessonsCount } = getStudentBookingQuota(student, records);
+                      return (
+                        <>
+                          <div className={`text-xl font-bold ${rawRemaining <= 0 ? 'text-amber-500' : 'text-cyan-600'}`}>
+                            {rawRemaining}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            ({pendingLessonsCount}堂已排課)
+                          </div>
+                        </>
+                      );
+                    })()}
                   </>
                 )}
               </div>
@@ -480,7 +499,7 @@ export default function Students({ students, records, purchaseRecords = [], isAd
                     <h2 className="text-lg sm:text-xl font-bold text-slate-900">{viewingStudent.name}</h2>
                     <div className="flex items-center space-x-2">
                       <p className="text-xs sm:text-sm text-slate-500">
-                        {viewingStudent.courseType === 'online' ? '線上課程' : `剩餘 ${viewingStudent.remainingClasses || 0} 堂課`}
+                        {viewingStudent.courseType === 'online' ? '線上課程' : formatStudentQuotaLabel(viewingStudent, records)}
                       </p>
                       {viewingStudent.courseType === 'online' && viewingStudent.endDate && (
                         <span className="text-[10px] text-slate-400">至 {viewingStudent.endDate.replace(/-/g, '/')}</span>
@@ -923,49 +942,74 @@ export default function Students({ students, records, purchaseRecords = [], isAd
               <div className="flex justify-between items-center mb-6 shrink-0">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">預約課程</h2>
-                  <p className="text-sm text-slate-500 mt-1">為 <span className="font-bold text-cyan-600">{schedulingStudent.name}</span> 排課</p>
+                  <p className="text-sm text-slate-500 mt-1">為 <span className="font-bold text-cyan-600">{formatStudentQuotaLabel(schedulingStudent, records)}</span> 排課</p>
                 </div>
                 <button onClick={() => setSchedulingStudent(null)} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors">
                   <X size={20} />
                 </button>
               </div>
               
-              <form onSubmit={handleSchedule} className="space-y-4 flex-1">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">日期</label>
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setDatePickerTarget('schedule');
-                        setShowInlineDatePicker(true);
-                      }}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
-                    >
-                      <span className="font-medium text-slate-700">{scheduleData.date.replace(/-/g, '/')}</span>
-                      <span className="text-cyan-600">📅</span>
-                    </button>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">時間</label>
-                    <button 
-                      type="button"
-                      onClick={() => setShowInlineTimePicker(true)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
-                    >
-                      <span className="font-medium text-slate-700">{scheduleData.time}</span>
-                      <span className="text-cyan-600">🕒</span>
-                    </button>
-                  </div>
-                </div>
-                
-                <button 
-                  type="submit"
-                  className="w-full bg-cyan-500 text-white font-bold rounded-xl py-4 mt-6 active:scale-95 transition-transform shadow-lg shadow-cyan-500/30 hover:bg-cyan-400"
-                >
-                  確認預約
-                </button>
-              </form>
+              {(() => {
+                const schedulingQuota = schedulingStudent ? getStudentBookingQuota(schedulingStudent, records) : { rawRemaining: 0, availableToBook: 0 };
+                const isZeroQuota = schedulingStudent?.courseType !== 'online' && schedulingQuota.availableToBook <= 0;
+                return (
+                  <form onSubmit={handleSchedule} className="space-y-4 flex-1">
+                    {isZeroQuota && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-xl flex items-center">
+                        <span>⚠️ 該學員可排課堂數已為 0 ！</span>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">日期</label>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setDatePickerTarget('schedule');
+                            setShowInlineDatePicker(true);
+                          }}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
+                        >
+                          <span className="font-medium text-slate-700">{scheduleData.date.replace(/-/g, '/')}</span>
+                          <span className="text-cyan-600">📅</span>
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">時間</label>
+                        <button 
+                          type="button"
+                          onClick={() => setShowInlineTimePicker(true)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 flex items-center justify-between text-left shadow-sm hover:border-cyan-500 transition-colors"
+                        >
+                          <span className="font-medium text-slate-700">{scheduleData.time}</span>
+                          <span className="text-cyan-600">🕒</span>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {isZeroQuota ? (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const studentToRenew = schedulingStudent;
+                          setSchedulingStudent(null);
+                          setRenewingStudent(studentToRenew);
+                        }}
+                        className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl py-4 mt-6 active:scale-95 transition-all shadow-lg shadow-amber-500/30"
+                      >
+                        💳 立即續課
+                      </button>
+                    ) : (
+                      <button 
+                        type="submit"
+                        className="w-full bg-cyan-500 text-white font-bold rounded-xl py-4 mt-6 active:scale-95 transition-transform shadow-lg shadow-cyan-500/30 hover:bg-cyan-400"
+                      >
+                        確認預約
+                      </button>
+                    )}
+                  </form>
+                );
+              })()}
             </div>
 
           </motion.div>

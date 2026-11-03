@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Student } from '../types';
+import { Student, ClassRecord } from '../types';
 import CustomDatePicker from './CustomDatePicker';
 import CustomTimePicker from './CustomTimePicker';
 import { collection, query, where, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
+import { getStudentBookingQuota, formatStudentQuotaLabel, isPendingLesson } from '../utils/recordUtils';
 
 interface QuickBookingModalProps {
   students: Student[];
+  records?: ClassRecord[];
   initialDate?: string;
   initialTime?: string;
   onClose: () => void;
   onBook: (studentId: string, date: string, time: string) => void;
+  onOpenRenew?: (student: Student) => void;
 }
 
 interface RecurringSlot {
@@ -66,9 +69,40 @@ const calculateEndTime = (startTime: string) => {
   return `${newH.toString().padStart(2, '0')}:${newM.toString().padStart(2, '0')}`;
 };
 
-export default function QuickBookingModal({ students, initialDate, initialTime, onClose, onBook }: QuickBookingModalProps) {
-  const eligibleStudents = students.filter(s => (s.remainingClasses || 0) > 0);
-  const [selectedStudentId, setSelectedStudentId] = useState(eligibleStudents.length > 0 ? eligibleStudents[0].id : '');
+export default function QuickBookingModal({ students, records = [], initialDate, initialTime, onClose, onBook, onOpenRenew }: QuickBookingModalProps) {
+  // 篩選過濾：隱藏無堂數且不可約的學員（remainingLessons <= 0 且 availableToBook <= 0）
+  const bookableStudents = React.useMemo(() => {
+    return students.filter(s => {
+      if (s.courseType === 'online') {
+        if (!s.endDate) return true;
+        return new Date(s.endDate.replace(/-/g, '/')) >= new Date(new Date().setHours(0, 0, 0, 0));
+      }
+      const { rawRemaining, availableToBook } = getStudentBookingQuota(s, records);
+      if (rawRemaining <= 0 && availableToBook <= 0) {
+        return false;
+      }
+      return true;
+    });
+  }, [students, records]);
+
+  // 預設選取下拉清單中的第一位「仍有可約額度」的學員
+  const [selectedStudentId, setSelectedStudentId] = useState(() => {
+    const firstAvailable = bookableStudents.find(s => {
+      if (s.courseType === 'online') return true;
+      return getStudentBookingQuota(s, records).availableToBook > 0;
+    });
+    return firstAvailable ? firstAvailable.id : (bookableStudents[0]?.id || '');
+  });
+
+  useEffect(() => {
+    if (bookableStudents.length > 0 && !bookableStudents.some(s => s.id === selectedStudentId)) {
+      const firstAvailable = bookableStudents.find(s => {
+        if (s.courseType === 'online') return true;
+        return getStudentBookingQuota(s, records).availableToBook > 0;
+      });
+      setSelectedStudentId(firstAvailable ? firstAvailable.id : (bookableStudents[0]?.id || ''));
+    }
+  }, [bookableStudents, selectedStudentId, records]);
   const [showStudentPicker, setShowStudentPicker] = useState(false);
   
   // Toggle: 單次約課 vs 固定排課
@@ -152,7 +186,11 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
     }
   }, [date]);
 
-  const selectedStudent = eligibleStudents.find(s => s.id === selectedStudentId);
+  const selectedStudent = students.find(s => s.id === selectedStudentId);
+  const quota = selectedStudent 
+    ? getStudentBookingQuota(selectedStudent, records)
+    : { rawRemaining: 0, pendingLessonsCount: 0, availableToBook: 0 };
+  const isZeroQuota = selectedStudent?.courseType !== 'online' && quota.availableToBook <= 0;
 
   // Add a recurring slot
   const handleAddSlot = () => {
@@ -177,13 +215,49 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
   // Handle single booking submission
   const handleSingleBook = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-    if (!selectedStudentId) {
+    if (!selectedStudent || !selectedStudentId) {
       setErrorMsg('請選擇學員');
       return;
     }
 
     try {
       setErrorMsg('');
+
+      // 防呆：實體課程檢查真實可用剩餘堂數（可排課堂數）
+      if (selectedStudent.courseType !== 'online') {
+        let currentPendingCount = quota.pendingLessonsCount;
+        try {
+          const recordsRef = collection(db, 'records');
+          const [snapName, snapId] = await Promise.all([
+            getDocs(query(recordsRef, where('studentName', '==', selectedStudent.name))),
+            getDocs(query(recordsRef, where('studentId', '==', selectedStudent.id)))
+          ]);
+          const seen = new Set<string>();
+          let dbCount = 0;
+          [...snapName.docs, ...snapId.docs].forEach(d => {
+            if (!seen.has(d.id)) {
+              seen.add(d.id);
+              const rData = d.data() as ClassRecord;
+              rData.id = d.id;
+              if (isPendingLesson(rData, selectedStudent)) dbCount++;
+            }
+          });
+          currentPendingCount = Math.max(currentPendingCount, dbCount);
+        } catch (err) {
+          console.warn('DB pending check fallback:', err);
+        }
+
+        const rawRemaining = selectedStudent.remainingClasses ?? (selectedStudent as any).remainingLessons ?? 0;
+        const availableToBook = rawRemaining - currentPendingCount;
+
+        if (availableToBook <= 0) {
+          alert('⚠️ 該學員可排課堂數已為 0 ！該續課啦！');
+          setErrorMsg('⚠️ 該學員可排課堂數已為 0 ！該續課啦！');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       setIsSubmitting(true);
 
       const endTime = calculateEndTime(time);
@@ -197,34 +271,6 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
       }
 
       const recordsRef = collection(db, 'records');
-
-      // 虛擬堂數預扣檢查
-      if (selectedStudent?.courseType !== 'online') {
-        const remainingLessons = selectedStudent?.remainingClasses || 0;
-        const qRemaining = query(
-          recordsRef,
-          where('studentName', '==', selectedStudent?.name || ''),
-          where('status', '==', 'scheduled')
-        );
-        const querySnapshot = await getDocs(qRemaining);
-        const pendingSlots: string[] = [];
-        querySnapshot.forEach((docSnap) => {
-          const event = docSnap.data();
-          const pDate = event.date;
-          const pStart = event.startTime || event.time;
-          
-          if (pDate && pStart) {
-            const shortDate = pDate.replace(/^\d{4}-/, '').replace(/^\d{4}\//, '');
-            pendingSlots.push(`${shortDate} ${pStart}`);
-          }
-        });
-
-        if (remainingLessons - pendingSlots.length <= 0) {
-          setErrorMsg(`⚠️ 約課失敗！該學員剩餘堂數為 ${remainingLessons} 堂，已預約 ${pendingSlots.join('、')}！`);
-          setIsSubmitting(false);
-          return;
-        }
-      }
 
       const dateDash = date.replace(/\//g, '-'); 
       const dateSlash = date.replace(/-/g, '/');
@@ -287,26 +333,42 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
 
     try {
       setErrorMsg('');
-      setIsSubmitting(true);
 
-      const recordsRef = collection(db, 'records');
+      // 1. 計算可用虛擬堂數：嚴格以 availableToBook 為上限基準
+      let currentPendingCount = quota.pendingLessonsCount;
+      try {
+        const recordsRef = collection(db, 'records');
+        const [snapName, snapId] = await Promise.all([
+          getDocs(query(recordsRef, where('studentName', '==', selectedStudent.name))),
+          getDocs(query(recordsRef, where('studentId', '==', selectedStudent.id)))
+        ]);
+        const seen = new Set<string>();
+        let dbCount = 0;
+        [...snapName.docs, ...snapId.docs].forEach(d => {
+          if (!seen.has(d.id)) {
+            seen.add(d.id);
+            const rData = d.data() as ClassRecord;
+            rData.id = d.id;
+            if (isPendingLesson(rData, selectedStudent)) dbCount++;
+          }
+        });
+        currentPendingCount = Math.max(currentPendingCount, dbCount);
+      } catch (err) {
+        console.warn('DB pending check fallback:', err);
+      }
 
-      // 1. 計算可用虛擬堂數：virtualRemaining = remainingLessons - pendingSlots.length
-      const remainingLessons = selectedStudent.remainingClasses || 0;
-      const qRemaining = query(
-        recordsRef,
-        where('studentName', '==', selectedStudent.name),
-        where('status', '==', 'scheduled')
-      );
-      const remainingSnap = await getDocs(qRemaining);
-      const pendingSlotsCount = remainingSnap.size;
-      const virtualRemaining = remainingLessons - pendingSlotsCount;
+      const rawRemaining = selectedStudent.remainingClasses ?? (selectedStudent as any).remainingLessons ?? 0;
+      const virtualRemaining = selectedStudent.courseType === 'online' ? 999 : (rawRemaining - currentPendingCount);
 
-      if (virtualRemaining <= 0) {
-        setErrorMsg(`⚠️ 約課失敗！該學員剩餘堂數為 ${remainingLessons} 堂，已預約 ${pendingSlotsCount} 堂，目前無可用額度！`);
+      if (selectedStudent.courseType !== 'online' && virtualRemaining <= 0) {
+        alert('⚠️ 該學員可排課堂數已為 0 ！該續課啦！');
+        setErrorMsg('⚠️ 該學員可排課堂數已為 0 ！該續課啦！');
         setIsSubmitting(false);
         return;
       }
+
+      setIsSubmitting(true);
+      const recordsRef = collection(db, 'records');
 
       // 2. 依照選定的每週時段順序，僅往後產生剛好總數等於 virtualRemaining 的預定排程清單
       const [startY, startM, startD] = recurringStartDate.split('-').map(Number);
@@ -464,7 +526,7 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
       }
 
       const successCount = slotsToWrite.length;
-      const remainingAfter = remainingLessons - (pendingSlotsCount + successCount);
+      const remainingAfter = Math.max(0, virtualRemaining - successCount);
 
       // 6. 設定結果彈窗
       setBatchResult({
@@ -611,7 +673,7 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
                     className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3.5 text-slate-900 text-left shadow-sm hover:border-cyan-500 transition-all flex items-center justify-between"
                   >
                     <span className="text-sm font-medium">
-                      {selectedStudent ? `${selectedStudent.name} (剩餘 ${selectedStudent.remainingClasses || 0} 堂)` : '無可預約學員'}
+                      {selectedStudent ? formatStudentQuotaLabel(selectedStudent, records) : '無可預約學員'}
                     </span>
                     <span className="text-slate-400 text-xs">▼</span>
                   </button>
@@ -624,20 +686,28 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
                         exit={{ opacity: 0, y: 10 }}
                         className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-y-auto max-h-[180px]"
                       >
-                        {eligibleStudents.map(s => (
+                        {bookableStudents.map(s => (
                           <button 
                             key={s.id}
                             type="button"
                             onClick={() => { setSelectedStudentId(s.id); setShowStudentPicker(false); }}
                             className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 transition-colors border-t border-slate-50 first:border-t-0 font-medium text-slate-800"
                           >
-                            {s.name} (剩餘 {s.remainingClasses || 0} 堂)
+                            {formatStudentQuotaLabel(s, records)}
                           </button>
                         ))}
+                        {bookableStudents.length === 0 && (
+                          <div className="p-3 text-center text-xs text-slate-400">目前無可預約學員</div>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
+                {isZeroQuota && (
+                  <div className="mt-2 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-xl flex items-center">
+                    <span>⚠️ 該學員可排課堂數已為 0 ！</span>
+                  </div>
+                )}
               </div>
 
               {/* 單次約課模式 */}
@@ -688,7 +758,7 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
                     <div className="flex justify-between items-center mb-2">
                       <label className="block text-xs font-semibold text-slate-700">每週固定時段</label>
                       <span className="text-[11px] text-cyan-600 font-bold">
-                        學員剩餘：{selectedStudent?.remainingClasses || 0} 堂
+                        {selectedStudent ? (selectedStudent.courseType === 'online' ? '線上課' : `可排額度：${quota.availableToBook} 堂`) : ''}
                       </span>
                     </div>
 
@@ -778,18 +848,39 @@ export default function QuickBookingModal({ students, initialDate, initialTime, 
               >
                 取消
               </button>
-              <button 
-                type="button"
-                disabled={isSubmitting}
-                onClick={isRecurring ? handleRecurringBook : handleSingleBook} 
-                className="flex-1 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/25 active:scale-95 transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <span>{isRecurring ? '開始固定排課' : '預約'}</span>
-                )}
-              </button>
+              {isZeroQuota ? (
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (onOpenRenew && selectedStudent) {
+                      onClose();
+                      onOpenRenew(selectedStudent);
+                    }
+                  }} 
+                  className="flex-1 py-3 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center space-x-1.5 bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25 active:scale-95"
+                >
+                  💳 立即續課
+                </button>
+              ) : (
+                <button 
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={(e) => {
+                    if (isRecurring) {
+                      handleRecurringBook(e);
+                    } else {
+                      handleSingleBook(e);
+                    }
+                  }} 
+                  className="flex-1 py-3 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center space-x-1.5 bg-cyan-500 hover:bg-cyan-600 text-white shadow-cyan-500/25 active:scale-95 disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span>{isRecurring ? '開始固定排課' : '預約'}</span>
+                  )}
+                </button>
+              )}
             </div>
           </motion.div>
         )}

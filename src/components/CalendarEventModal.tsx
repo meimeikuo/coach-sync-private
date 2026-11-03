@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Student, ClassRecord } from '../types';
 import CustomDatePicker from './CustomDatePicker';
 import CustomTimePicker from './CustomTimePicker';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { getStudentBookingQuota, formatStudentQuotaLabel, isPendingLesson } from '../utils/recordUtils';
 
 interface CalendarEventModalProps {
   students: Student[];
@@ -14,6 +15,7 @@ interface CalendarEventModalProps {
   onClose: () => void;
   onBook: (recordData: Partial<ClassRecord>) => void;
   onDelete?: (id: string) => void;
+  onOpenRenew?: (student: Student) => void;
   editRecord?: ClassRecord;
   checkConflict: (date: string, startTime: string, endTime: string, excludeId?: string) => ClassRecord | null;
 }
@@ -31,20 +33,51 @@ const timeToMinutes = (timeStr?: string): number => {
   }
 };
 
-export default function CalendarEventModal({ students, records = [], initialDate, initialTime, onClose, onBook, onDelete, editRecord, checkConflict }: CalendarEventModalProps) {
+export default function CalendarEventModal({ students, records = [], initialDate, initialTime, onClose, onBook, onDelete, onOpenRenew, editRecord, checkConflict }: CalendarEventModalProps) {
   const isEditMode = !!editRecord;
   const initialType = editRecord ? (editRecord.type || 'class') : 'class';
   const [activeTab, setActiveTab] = useState<'class' | 'custom'>(initialType);
   const [customTitle, setCustomTitle] = useState(editRecord?.type === 'custom' ? editRecord.studentName : '');
+
+  const relevantRecords = useMemo(() => {
+    return editRecord?.id ? records.filter(r => r.id !== editRecord.id) : records;
+  }, [records, editRecord]);
+
+  // 過濾條件：若學員的 student.remainingLessons <= 0 且真實可排額度 availableToBook <= 0（即剩餘 0 堂且待簽 0 堂），一律不顯示在下拉選單中
+  const bookableStudents = useMemo(() => {
+    return students.filter(s => {
+      if (editRecord && editRecord.studentName === s.name) return true;
+      if (s.courseType === 'online') return true;
+      const { rawRemaining, availableToBook } = getStudentBookingQuota(s, relevantRecords);
+      if (rawRemaining <= 0 && availableToBook <= 0) {
+        return false;
+      }
+      return true;
+    });
+  }, [students, relevantRecords, editRecord]);
   
-  const eligibleStudents = students.filter(s => (s.remainingClasses || 0) > 0 || (s.courseType === 'online' && new Date(s.endDate || '') >= new Date()));
   const [selectedStudentId, setSelectedStudentId] = useState(() => {
     if (editRecord && editRecord.type !== 'custom') {
       const student = students.find(s => s.name === editRecord.studentName);
       return student ? student.id : '';
     }
-    return eligibleStudents.length > 0 ? eligibleStudents[0].id : '';
+    const available = bookableStudents.find(s => {
+      if (s.courseType === 'online') return true;
+      return getStudentBookingQuota(s, records).availableToBook > 0;
+    });
+    return available ? available.id : (bookableStudents[0]?.id || '');
   });
+
+  useEffect(() => {
+    if (!editRecord && bookableStudents.length > 0 && !bookableStudents.some(s => s.id === selectedStudentId)) {
+      const available = bookableStudents.find(s => {
+        if (s.courseType === 'online') return true;
+        return getStudentBookingQuota(s, relevantRecords).availableToBook > 0;
+      });
+      setSelectedStudentId(available ? available.id : (bookableStudents[0]?.id || ''));
+    }
+  }, [bookableStudents, selectedStudentId, editRecord, relevantRecords]);
+
   const [showStudentPicker, setShowStudentPicker] = useState(false);
   
   // Default date: today (local)
@@ -98,6 +131,10 @@ export default function CalendarEventModal({ students, records = [], initialDate
   }, [time]);
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
+  const quota = selectedStudent 
+    ? getStudentBookingQuota(selectedStudent, relevantRecords)
+    : { rawRemaining: 0, pendingLessonsCount: 0, availableToBook: 0 };
+  const isZeroQuota = activeTab === 'class' && selectedStudent?.courseType !== 'online' && quota.availableToBook <= 0;
 
   const handleBook = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
@@ -114,6 +151,41 @@ export default function CalendarEventModal({ students, records = [], initialDate
         return;
       }
 
+      // 1.5 虛擬堂數預扣檢查（防呆）
+      if (activeTab === 'class' && selectedStudent?.courseType !== 'online') {
+        let currentPendingCount = quota.pendingLessonsCount;
+        try {
+          const recordsRef = collection(db, 'records');
+          const [snapName, snapId] = await Promise.all([
+            getDocs(query(recordsRef, where('studentName', '==', selectedStudent.name))),
+            getDocs(query(recordsRef, where('studentId', '==', selectedStudent.id)))
+          ]);
+          const seen = new Set<string>();
+          let dbCount = 0;
+          [...snapName.docs, ...snapId.docs].forEach((docSnap) => {
+            if (editRecord?.id && docSnap.id === editRecord.id) return;
+            if (!seen.has(docSnap.id)) {
+              seen.add(docSnap.id);
+              const rData = docSnap.data() as ClassRecord;
+              rData.id = docSnap.id;
+              if (isPendingLesson(rData, selectedStudent)) dbCount++;
+            }
+          });
+          currentPendingCount = Math.max(currentPendingCount, dbCount);
+        } catch (err) {
+          console.warn('DB pending check fallback in CalendarEventModal:', err);
+        }
+
+        const rawRemaining = selectedStudent.remainingClasses ?? (selectedStudent as any).remainingLessons ?? 0;
+        const availableToBook = rawRemaining - currentPendingCount;
+
+        if (availableToBook <= 0) {
+          alert('⚠️ 該學員可排課堂數已為 0 ！該續課啦！');
+          setErrorMsg('⚠️ 該學員可排課堂數已為 0 ！該續課啦！');
+          return;
+        }
+      }
+
       const finalEndTime = activeTab === 'class' ? calculateEndTime(time) : endTime;
 
       const newStartMin = timeToMinutes(time);
@@ -122,38 +194,6 @@ export default function CalendarEventModal({ students, records = [], initialDate
       if (newStartMin === -1 || newEndMin === -1) {
         setErrorMsg('⚠️ 您的輸入時間格式有誤，請重新檢查！');
         return;
-      }
-
-      // 1.5 虛擬堂數預扣檢查
-      if (activeTab === 'class' && selectedStudent?.courseType !== 'online') {
-        const remainingLessons = selectedStudent?.remainingClasses || 0;
-        const studentName = selectedStudent?.name || '';
-        const recordsRef = collection(db, 'records');
-        const q = query(
-          recordsRef, 
-          where('studentName', '==', studentName), 
-          where('status', '==', 'scheduled')
-        );
-        const querySnapshot = await getDocs(q);
-        const pendingSlots: string[] = [];
-        querySnapshot.forEach((doc) => {
-          // 排除自己(編輯模式)
-          if (editRecord?.id && doc.id === editRecord.id) return;
-
-          const event = doc.data();
-          const pDate = event.date; // 例如: "2026-07-16"
-          const pStart = event.startTime || event.time; // 例如: "11:00"
-          
-          if (pDate && pStart) {
-            const shortDate = pDate.replace(/^\d{4}-/, '').replace(/^\d{4}\//, ''); // 去除年份，只留月/日
-            pendingSlots.push(`${shortDate} ${pStart}`);
-          }
-        });
-
-        if (remainingLessons - pendingSlots.length <= 0) {
-          setErrorMsg(`⚠️ 約課失敗！該學員剩餘堂數為 ${remainingLessons} 堂，已預約 ${pendingSlots.join('、')}！`);
-          return;
-        }
       }
 
       // 1. 取得兩種日期格式
@@ -234,7 +274,14 @@ export default function CalendarEventModal({ students, records = [], initialDate
         animate={{ scale: 1, opacity: 1 }}
         className="bg-white/95 backdrop-blur-xl w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative"
       >
-        <h2 className="text-xl font-bold text-slate-900 mb-6">{isEditMode ? '編輯行程' : '新增行事曆事件'}</h2>
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-slate-900">{isEditMode ? '編輯行程' : '新增行事曆事件'}</h2>
+          {!isEditMode && activeTab === 'class' && selectedStudent && (
+            <p className="text-xs text-slate-500 mt-1">
+              為 <span className="font-bold text-cyan-600">{formatStudentQuotaLabel(selectedStudent, relevantRecords)}</span> 排課
+            </p>
+          )}
+        </div>
         
         {!isEditMode && (
           <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
@@ -259,11 +306,14 @@ export default function CalendarEventModal({ students, records = [], initialDate
               <label className="block text-sm font-medium text-slate-700 mb-1">選擇學員</label>
               <div className="relative">
                 <button 
+                  type="button"
                   onClick={() => setShowStudentPicker(!showStudentPicker)}
                   className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-4 text-slate-900 text-left shadow-sm hover:border-cyan-500 transition-all flex items-center justify-between"
-                  disabled={isEditMode} // Usually we don't change student in edit mode, but if we do, it's fine. Disable to keep simple.
+                  disabled={isEditMode}
                 >
-                  <span>{selectedStudent ? `${selectedStudent.name} (剩餘 ${selectedStudent.remainingClasses || 0} 堂)` : '無可預約學員'}</span>
+                  <span className="text-sm font-medium">
+                    {selectedStudent ? formatStudentQuotaLabel(selectedStudent, relevantRecords) : '無可預約學員'}
+                  </span>
                   {!isEditMode && <span className="text-slate-400">▼</span>}
                 </button>
                 
@@ -275,19 +325,29 @@ export default function CalendarEventModal({ students, records = [], initialDate
                       exit={{ opacity: 0, y: 10 }}
                       className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-y-auto max-h-[200px]"
                     >
-                      {eligibleStudents.map(s => (
-                        <button 
-                          key={s.id}
-                          onClick={() => { setSelectedStudentId(s.id); setShowStudentPicker(false); }}
-                          className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-t border-slate-50 first:border-t-0"
-                        >
-                          {s.name} (剩餘 {s.remainingClasses || 0} 堂)
-                        </button>
-                      ))}
+                      {bookableStudents.length > 0 ? (
+                        bookableStudents.map(s => (
+                          <button 
+                            key={s.id}
+                            type="button"
+                            onClick={() => { setSelectedStudentId(s.id); setShowStudentPicker(false); }}
+                            className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-t border-slate-50 first:border-t-0 font-medium text-slate-800 text-sm"
+                          >
+                            {formatStudentQuotaLabel(s, relevantRecords)}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-3 text-center text-xs text-slate-400">目前無可預約學員</div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
+              {isZeroQuota && !isEditMode && (
+                <div className="mt-2 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-xl flex items-center">
+                  <span>⚠️ 該學員可排課堂數已為 0 ！</span>
+                </div>
+              )}
             </div>
           ) : (
             <div>
@@ -359,9 +419,28 @@ export default function CalendarEventModal({ students, records = [], initialDate
           )}
           {!isEditMode && <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl">取消</button>}
           {isEditMode && activeTab !== 'custom' && <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl">取消</button>}
-          <button onClick={handleBook} className="flex-1 py-3 bg-cyan-500 text-white font-bold rounded-xl shadow-lg shadow-cyan-500/20">
-            {isEditMode ? '儲存修改' : '儲存'}
-          </button>
+          {isZeroQuota && !isEditMode ? (
+            <button 
+              type="button"
+              onClick={() => {
+                if (onOpenRenew && selectedStudent) {
+                  onClose();
+                  onOpenRenew(selectedStudent);
+                }
+              }} 
+              className="flex-1 py-3 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center space-x-1.5 bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25 active:scale-95"
+            >
+              💳 立即續課
+            </button>
+          ) : (
+            <button 
+              type="button"
+              onClick={(e) => handleBook(e)} 
+              className="flex-1 py-3 font-bold rounded-xl shadow-lg transition-all bg-cyan-500 hover:bg-cyan-600 text-white shadow-cyan-500/20 active:scale-95"
+            >
+              {isEditMode ? '儲存修改' : '儲存'}
+            </button>
+          )}
         </div>
 
         <AnimatePresence>

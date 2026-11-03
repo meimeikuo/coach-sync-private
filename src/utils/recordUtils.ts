@@ -1,6 +1,53 @@
-import { ClassRecord } from '../types';
+import { Student, ClassRecord } from '../types';
 
 export type RecordDisplayStatus = 'scheduled' | 'completed' | 'late_pending';
+
+export const isClassCompleted = (record: ClassRecord): boolean => {
+  return (
+    record.status === 'completed' ||
+    (record.status as string) === 'signed' ||
+    (record as any).signed === true ||
+    Boolean((record as any).signature) ||
+    Boolean(record.coachSignature && record.studentSignature)
+  );
+};
+
+export const isPendingLesson = (
+  record: ClassRecord,
+  student: { id?: string; name: string }
+): boolean => {
+  if (record.type === 'custom') return false;
+  const matchesStudent =
+    (Boolean(record.studentName) && record.studentName === student.name) ||
+    (Boolean((record as any).studentId) && (record as any).studentId === student.id);
+  if (!matchesStudent) return false;
+  return !isClassCompleted(record);
+};
+
+export const getStudentBookingQuota = (
+  student: Student,
+  records: ClassRecord[] = []
+): { rawRemaining: number; pendingLessonsCount: number; availableToBook: number } => {
+  const rawRemaining = student.remainingClasses ?? (student as any).remainingLessons ?? 0;
+  const pendingLessonsCount = records.filter(r => isPendingLesson(r, student)).length;
+  const availableToBook = rawRemaining - pendingLessonsCount;
+  return {
+    rawRemaining,
+    pendingLessonsCount,
+    availableToBook,
+  };
+};
+
+export const formatStudentQuotaLabel = (
+  student: Student,
+  records: ClassRecord[] = []
+): string => {
+  if (student.courseType === 'online') {
+    return `${student.name}（線上課至 ${student.endDate?.replace(/-/g, '/') || '無期限'}）`;
+  }
+  const { availableToBook, pendingLessonsCount } = getStudentBookingQuota(student, records);
+  return `${student.name}（剩餘：${availableToBook}堂 / ${pendingLessonsCount}堂已排課）`;
+};
 
 export const getRecordDisplayStatus = (record: ClassRecord): RecordDisplayStatus => {
   if (record.status === 'completed' || (record.coachSignature && record.studentSignature)) return 'completed';

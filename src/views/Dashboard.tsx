@@ -16,9 +16,10 @@ interface DashboardProps {
   onUpdateRecord: (id: string, date: string, time: string) => void;
   onScheduleClass: (recordData: Omit<ClassRecord, 'id' | 'createdAt' | 'status'>) => void;
   onAddStudentClick?: () => void;
+  onOpenRenew?: (student: Student) => void;
 }
 
-export default function Dashboard({ students, records, onNavigate, onSignRecord, onUpdateRecord, onScheduleClass, onAddStudentClick }: DashboardProps) {
+export default function Dashboard({ students, records, onNavigate, onSignRecord, onUpdateRecord, onScheduleClass, onAddStudentClick, onOpenRenew }: DashboardProps) {
   const [signingRecord, setSigningRecord] = useState<ClassRecord | null>(null);
   const [viewingRecordId, setViewingRecordId] = useState<string | null>(null);
   const [showQuickBookingModal, setShowQuickBookingModal] = useState(false);
@@ -106,6 +107,8 @@ export default function Dashboard({ students, records, onNavigate, onSignRecord,
       {showQuickBookingModal && (
         <QuickBookingModal
           students={students}
+          records={records}
+          onOpenRenew={onOpenRenew}
           onBook={(studentId, date, time) => {
             const student = students.find(s => s.id === studentId);
             if (student) {

@@ -8,6 +8,7 @@ import Students from './views/Students';
 import Records from './views/Records';
 import CalendarView from './views/CalendarView';
 import Login from './views/Login';
+import RenewModal from './components/RenewModal';
 import { Student, ClassRecord, TabType, PurchaseRecord } from './types';
 
 enum OperationType {
@@ -67,6 +68,7 @@ export default function App() {
   const [students, setStudents] = useState<Student[]>([]);
   const [records, setRecords] = useState<ClassRecord[]>([]);
   const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecord[]>([]);
+  const [renewingStudent, setRenewingStudent] = useState<Student | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
@@ -408,11 +410,64 @@ export default function App() {
         
         {/* Main Content Area */}
         <div className={`flex-1 overflow-hidden z-10 ${activeTab === 'calendar' ? '' : 'pb-24 sm:pb-16'}`}>
-          {activeTab === 'dashboard' && <Dashboard students={students} records={records} onNavigate={setActiveTab} onSignRecord={handleSignRecord} onUpdateRecord={handleUpdateRecord} onScheduleClass={handleScheduleClass} onAddStudentClick={() => { setActiveTab('students'); setIsAddingStudent(true); }} />}
-          {activeTab === 'students' && <Students students={students} records={records} purchaseRecords={purchaseRecords} isAddingStudent={isAddingStudent} onAddModalClose={() => setIsAddingStudent(false)} onAddStudent={handleAddStudent} onScheduleClass={handleScheduleClass} onRenewClasses={handleRenewClasses} onRenewOnlineClasses={handleRenewOnlineClasses} onDeleteStudent={handleDeleteStudent} onUpdateRecord={handleUpdateRecord} onUpdateStudentName={handleUpdateStudentName} onSignRecord={handleSignRecord} />}
-          {activeTab === 'records' && <Records records={records} onSignRecord={handleSignRecord} onUpdateRecord={handleUpdateRecord} />}
-          {activeTab === 'calendar' && <CalendarView students={students} records={records} onScheduleClass={handleScheduleClass} onUpdateRecord={handleUpdateRecord} onDeleteRecord={handleDeleteRecord} onSignRecord={handleSignRecord} />}
+          {activeTab === 'dashboard' && (
+            <Dashboard 
+              students={students} 
+              records={records} 
+              onNavigate={setActiveTab} 
+              onSignRecord={handleSignRecord} 
+              onUpdateRecord={handleUpdateRecord} 
+              onScheduleClass={handleScheduleClass} 
+              onAddStudentClick={() => { setActiveTab('students'); setIsAddingStudent(true); }}
+              onOpenRenew={(student) => setRenewingStudent(student)}
+            />
+          )}
+          {activeTab === 'students' && (
+            <Students 
+              students={students} 
+              records={records} 
+              purchaseRecords={purchaseRecords} 
+              isAddingStudent={isAddingStudent} 
+              onAddModalClose={() => setIsAddingStudent(false)} 
+              onAddStudent={handleAddStudent} 
+              onScheduleClass={handleScheduleClass} 
+              onRenewClasses={handleRenewClasses} 
+              onRenewOnlineClasses={handleRenewOnlineClasses} 
+              onDeleteStudent={handleDeleteStudent} 
+              onUpdateRecord={handleUpdateRecord} 
+              onUpdateStudentName={handleUpdateStudentName} 
+              onSignRecord={handleSignRecord} 
+            />
+          )}
+          {activeTab === 'records' && (
+            <Records 
+              records={records} 
+              onSignRecord={handleSignRecord} 
+              onUpdateRecord={handleUpdateRecord} 
+            />
+          )}
+          {activeTab === 'calendar' && (
+            <CalendarView 
+              students={students} 
+              records={records} 
+              onScheduleClass={handleScheduleClass} 
+              onUpdateRecord={handleUpdateRecord} 
+              onDeleteRecord={handleDeleteRecord} 
+              onSignRecord={handleSignRecord} 
+              onOpenRenew={(student) => setRenewingStudent(student)}
+            />
+          )}
         </div>
+
+        {/* Global Renew Modal */}
+        {renewingStudent && (
+          <RenewModal
+            student={renewingStudent}
+            onClose={() => setRenewingStudent(null)}
+            onRenewClasses={handleRenewClasses}
+            onRenewOnlineClasses={handleRenewOnlineClasses}
+          />
+        )}
 
         {/* Bottom Navigation */}
         <div className="z-20">
